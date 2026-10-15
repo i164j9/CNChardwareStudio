@@ -39,6 +39,14 @@
             </div>
         </div>
         <div class="flex items-center gap-3">
+            <label for="voltage-drop-threshold"
+                class="flex items-center gap-2 rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-xs text-gray-300">
+                Max wire drop
+                <input id="voltage-drop-threshold" type="number" min="0.1" max="15" step="0.1" value="5"
+                    class="w-14 rounded border border-gray-700 bg-gray-950 px-1.5 py-1 text-center font-mono text-amber-300"
+                    aria-describedby="voltage-drop-threshold-status">
+                %
+            </label>
             <a href="./cncHardwareTutorial.html"
                 class="bg-gray-800 hover:bg-gray-700 text-gray-200 font-medium text-sm px-3 py-2 rounded-lg transition-all border border-gray-700">
                 📖 Tutorial
@@ -82,6 +90,16 @@
 
         <!-- Formula Node Interactive Canvas Workspace -->
         <section class="lg:col-span-3 space-y-6">
+            <aside class="rounded-xl border border-gray-800 bg-gray-900/40 p-4 text-xs leading-5 text-gray-400">
+                <h2 class="mb-1 font-semibold uppercase tracking-wider text-gray-300">Engineering assumptions</h2>
+                <p>
+                    Mechanical shaft output is converted to estimated motor/drive electrical input using the explicit
+                    efficiency block. DC supply efficiency is a separate loss. Wire-drop warnings compare calculated
+                    drop against the adjustable design threshold; they are diagnostics, not protective interlocks.
+                    Three-phase spindle current is an independent balanced-AC estimate unless explicitly connected.
+                </p>
+                <p id="voltage-drop-threshold-status" class="mt-1 text-red-300" role="status" hidden></p>
+            </aside>
             <div id="canvas-placeholder"
                 class="text-center py-20 border-2 border-dashed border-gray-800 rounded-2xl bg-gray-900/20">
                 <span class="text-4xl block mb-3 opacity-60">⛓️</span>
@@ -127,28 +145,72 @@
             'horsepowerToWatts',
             'stepsPerMmToStepsPerInch',
             'stepsPerInchToStepsPerMm',
-            'estimateDcSupplyCurrent',
-            'dcWireVoltageDrop',
             'dcWireVoltageDropAwg',
         ]);
 
         const formulaParameterRegistry = {
-            estimateStepperSupplyCurrent: [
-                'supplyVoltage',
-                'phaseCurrentAmps',
-                'phaseVoltage',
-                'windingResistanceOhms',
-                'energizedPhases',
-                'driverEfficiency',
+            estimateStepperSupplyCurrent: {
+                type: 'destructured_object',
+                inputs: [
+                    'supplyVoltage',
+                    'phaseCurrentAmps',
+                    'phaseVoltage',
+                    'windingResistanceOhms',
+                    'energizedPhases',
+                    'driverEfficiency',
+                ],
+            },
+            estimateDcSupplyCurrent: {
+                type: 'array_of_objects',
+                inputs: [
+                    'supplyVoltage',
+                    'loadPowerWatts',
+                    'loadVoltage',
+                    'loadCurrentAmps',
+                    'loadQuantity',
+                    'efficiency',
+                ],
+            },
+            dcWireVoltageDrop: {
+                type: 'positional',
+                inputs: [
+                    'supplyVoltage',
+                    'current',
+                    'oneWayLengthMeters',
+                    'conductorAreaMm2',
+                    'material',
+                ],
+            },
+            electricalPowerFromShaft: {
+                type: 'positional',
+                inputs: ['shaftPowerWatts', 'motorDriveEfficiency'],
+            },
+        };
+        const formulaInputOptions = {
+            'dcWireVoltageDrop.material': [
+                { value: 'copper', label: 'Copper' },
+                { value: 'aluminum', label: 'Aluminum' },
             ],
         };
         const optionalFormulaParameters = new Set([
             'estimateStepperSupplyCurrent.phaseVoltage',
             'estimateStepperSupplyCurrent.windingResistanceOhms',
+            'estimateDcSupplyCurrent.loadPowerWatts',
         ]);
         const formulaParameterDefaults = {
             'estimateStepperSupplyCurrent.energizedPhases': 2,
             'estimateStepperSupplyCurrent.driverEfficiency': 0.9,
+            'estimateDcSupplyCurrent.supplyVoltage': 24,
+            'estimateDcSupplyCurrent.loadVoltage': 24,
+            'estimateDcSupplyCurrent.loadCurrentAmps': 0,
+            'estimateDcSupplyCurrent.loadQuantity': 1,
+            'estimateDcSupplyCurrent.efficiency': 1,
+            'dcWireVoltageDrop.supplyVoltage': 48,
+            'dcWireVoltageDrop.current': 0,
+            'dcWireVoltageDrop.oneWayLengthMeters': 12,
+            'dcWireVoltageDrop.conductorAreaMm2': 2.5,
+            'dcWireVoltageDrop.material': 'copper',
+            'electricalPowerFromShaft.motorDriveEfficiency': 0.8,
         };
         const formulaInputDescriptions = {
             stepperScrewStepsPerMm: {
@@ -311,6 +373,18 @@
                 energizedPhases: 'Number of motor phases assumed to draw power at once: 1 or 2. The estimate defaults to 2.',
                 driverEfficiency: 'Estimated driver efficiency as a fraction from greater than 0 to 1; for example, 0.9 means 90%.',
             },
+            estimateDcSupplyCurrent: {
+                supplyVoltage: 'DC supply output voltage, in volts (V).',
+                loadPowerWatts: 'Power for one load group, in watts (W). Leave blank and enter load voltage and current instead.',
+                loadVoltage: 'Voltage across each load, in volts (V), used with load current when load power is blank.',
+                loadCurrentAmps: 'Current per load, in amperes (A), used with load voltage when load power is blank.',
+                loadQuantity: 'Number of identical loads represented by this load group.',
+                efficiency: 'PSU efficiency as a fraction greater than 0 and at most 1; for example, 0.85 means 85%.',
+            },
+            electricalPowerFromShaft: {
+                shaftPowerWatts: 'Mechanical power delivered at the motor shaft, in watts (W).',
+                motorDriveEfficiency: 'Estimated combined motor and drive efficiency as a fraction greater than 0 and at most 1. Replace the default with manufacturer data when available.',
+            },
             awgToSquareMillimeters: {
                 awg: 'American Wire Gauge size from 0 to 40. Smaller AWG numbers indicate thicker wire; the result is conductor area in mm².',
             },
@@ -352,7 +426,7 @@
         };
 
         function getFunctionArgs(func, formulaName) {
-            const registeredParameters = formulaParameterRegistry[formulaName];
+            const registeredParameters = formulaParameterRegistry[formulaName]?.inputs;
             if (registeredParameters) {
                 return registeredParameters.map((name) => ({
                     name,
@@ -482,6 +556,30 @@
                 xLabel: 'Required machine thrust force (N)',
                 yLabel: 'Required motor torque (N·m)',
             },
+            estimateDcSupplyCurrent: {
+                input: 'loadPowerWatts',
+                min: 0,
+                max: 1000,
+                samples: 51,
+                xLabel: 'Load power (W)',
+                yLabel: 'Estimated supply current (A)',
+            },
+            electricalPowerFromShaft: {
+                input: 'shaftPowerWatts',
+                min: 0,
+                max: 1500,
+                samples: 40,
+                xLabel: 'Mechanical shaft power (W)',
+                yLabel: 'Estimated electrical input power (W)',
+            },
+            estimateStepperSupplyCurrent: {
+                input: 'supplyVoltage',
+                min: 12,
+                max: 48,
+                samples: 51,
+                xLabel: 'Driver supply voltage (V)',
+                yLabel: 'Estimated supply current (A)',
+            },
             reflectedLinearLoadInertia: {
                 input: 'totalMovingMassKg',
                 min: 5,
@@ -529,6 +627,8 @@
         const exportBtn = document.getElementById('export-btn');
         const importBtn = document.getElementById('import-btn');
         const importFile = document.getElementById('import-file');
+        const voltageDropThresholdInput = document.getElementById('voltage-drop-threshold');
+        const voltageDropThresholdStatus = document.getElementById('voltage-drop-threshold-status');
         const canvas = document.getElementById('formula-canvas');
         const pipelineGraphs = document.getElementById('pipeline-graphs');
         const pipelineGraphsContainer = document.getElementById('pipeline-graphs-container');
@@ -539,6 +639,7 @@
         exportBtn.addEventListener('click', exportTimelineConfiguration);
         importBtn.addEventListener('click', () => importFile.click());
         importFile.addEventListener('change', importTimelineConfiguration);
+        voltageDropThresholdInput.addEventListener('input', evaluatePipeline);
 
         function createFormulaBlock(savedData = null) {
             if (availableFormulas.length === 0) {
@@ -563,18 +664,19 @@
                 outputVariable: typeof savedData?.outputVariable === 'string'
                     ? savedData.outputVariable.replace(/[^a-zA-Z0-9_]/g, '')
                     : `Result_${blockCounter}`,
+                note: typeof savedData?.note === 'string' ? savedData.note : '',
                 outputValue: 0,
                 error: null,
-                graphEnabled: Boolean(savedData?.graphEnabled),
+                graphEnabled: Boolean(savedData?.graphEnabled ?? savedData?.showGraph),
                 graphInput: initialGraphInput,
-                graphMin: Number.isFinite(savedData?.graphMin)
-                    ? savedData.graphMin
+                graphMin: Number.isFinite(savedData?.graphMin ?? savedData?.sweepMin)
+                    ? savedData.graphMin ?? savedData.sweepMin
                     : defaultGraphProfile?.min ?? 0,
-                graphMax: Number.isFinite(savedData?.graphMax)
-                    ? savedData.graphMax
+                graphMax: Number.isFinite(savedData?.graphMax ?? savedData?.sweepMax)
+                    ? savedData.graphMax ?? savedData.sweepMax
                     : defaultGraphProfile?.max ?? 10,
-                graphSamples: Number.isInteger(savedData?.graphSamples)
-                    ? Math.min(500, Math.max(2, savedData.graphSamples))
+                graphSamples: Number.isInteger(savedData?.graphSamples ?? savedData?.sweepSamples)
+                    ? Math.min(500, Math.max(2, savedData.graphSamples ?? savedData.sweepSamples))
                     : defaultGraphProfile?.samples ?? 51,
                 accelerationMode: savedData?.accelerationMode === 'angular' ? 'angular' : 'linear',
                 accelerationValue: Number.isFinite(savedData?.accelerationValue)
@@ -597,6 +699,10 @@
                     ? savedData.inputs
                     : {},
             };
+            const savedGraphInput = savedData?.graphInput ?? savedData?.sweepTarget;
+            if (parameters.some(({ name }) => name === savedGraphInput)) {
+                blockState.graphInput = savedGraphInput;
+            }
             activeBlocks.push(blockState);
 
             const blockNode = document.createElement('div');
@@ -638,6 +744,10 @@
             graphToggle.className = 'graph-toggle-checkbox accent-emerald-500 rounded bg-gray-950';
             graphToggle.checked = blockState.graphEnabled;
             graphLabel.append(graphToggle, document.createTextNode('📊 Graph Sweep'));
+            const note = document.createElement('p');
+            note.className = 'block-note mt-3 rounded-md border border-blue-900/60 bg-blue-950/20 px-3 py-2 text-xs leading-5 text-blue-200';
+            note.textContent = blockState.note;
+            note.hidden = !blockState.note;
             const deleteButton = document.createElement('button');
             deleteButton.type = 'button';
             deleteButton.className = 'text-gray-500 hover:text-red-400 p-1.5 transition-colors cursor-pointer text-sm';
@@ -807,7 +917,7 @@
             outputDisplay.textContent = '0.00';
             outputDisplay.setAttribute('aria-live', 'polite');
             outputRow.append(outputCaption, outputDisplay);
-            blockNode.append(header, inputGrid, graphWrapper, outputRow);
+            blockNode.append(header, note, inputGrid, graphWrapper, outputRow);
             canvas.appendChild(blockNode);
 
             formulaSelect.addEventListener('change', () => {
@@ -952,6 +1062,9 @@
                     type: savedInput.type === 'pipe' ? 'pipe' : 'literal',
                     value: savedInput.value ?? defaultValue,
                 };
+                const inputOptions = formulaInputOptions[
+                    `${blockState.selectedFormula}.${name}`
+                ];
                 blockState.inputs[name] = inputState;
 
                 const wrapper = document.createElement('div');
@@ -961,7 +1074,9 @@
                 const labelText = optionalFormulaParameters.has(
                     `${blockState.selectedFormula}.${name}`,
                 )
-                    ? `${name} (optional; choose one)`
+                    ? blockState.selectedFormula === 'estimateDcSupplyCurrent'
+                        ? `${name} (optional; otherwise use voltage/current)`
+                        : `${name} (optional; choose one)`
                     : name;
                 label.textContent = labelText;
                 label.dataset.arg = name;
@@ -989,9 +1104,20 @@
                     option.selected = inputState.type === value;
                     sourceSelect.appendChild(option);
                 });
-                const literalInput = document.createElement('input');
-                literalInput.type = 'number';
-                literalInput.step = 'any';
+                const literalInput = inputOptions
+                    ? document.createElement('select')
+                    : document.createElement('input');
+                if (!inputOptions) {
+                    literalInput.type = 'number';
+                    literalInput.step = 'any';
+                } else {
+                    inputOptions.forEach(({ value, label: optionLabel }) => {
+                        const option = document.createElement('option');
+                        option.value = value;
+                        option.textContent = optionLabel;
+                        literalInput.appendChild(option);
+                    });
+                }
                 literalInput.className = 'literal-input min-w-0 flex-1 bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200';
                 literalInput.value = inputState.type === 'literal' && inputState.value !== null
                     ? inputState.value
@@ -1004,6 +1130,8 @@
                 const pipeSelect = document.createElement('select');
                 pipeSelect.className = 'pipe-input min-w-0 flex-1 bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200';
                 pipeSelect.classList.toggle('hidden', inputState.type !== 'pipe');
+                sourceSelect.hidden = Boolean(inputOptions);
+                pipeSelect.hidden = Boolean(inputOptions) || inputState.type !== 'pipe';
                 literalInput.classList.toggle('hidden', inputState.type !== 'literal');
                 populatePipeDropdown(pipeSelect, blockState.id);
                 if (inputState.type === 'pipe') pipeSelect.value = inputState.value;
@@ -1017,7 +1145,9 @@
                     pipeSelect.classList.toggle('hidden', inputState.type !== 'pipe');
                     if (inputState.type === 'pipe') populatePipeDropdown(pipeSelect, blockState.id);
                     inputState.value = inputState.type === 'literal'
-                        ? optionalFormulaParameters.has(`${blockState.selectedFormula}.${name}`) &&
+                        ? inputOptions
+                            ? literalInput.value
+                            : optionalFormulaParameters.has(`${blockState.selectedFormula}.${name}`) &&
                             literalInput.value === ''
                             ? null
                             : literalInput.valueAsNumber
@@ -1029,7 +1159,9 @@
                         `${blockState.selectedFormula}.${name}`,
                     ) && literalInput.value === ''
                         ? null
-                        : literalInput.valueAsNumber;
+                        : inputOptions
+                            ? literalInput.value
+                            : literalInput.valueAsNumber;
                     evaluatePipeline();
                 });
                 pipeSelect.addEventListener('change', () => {
@@ -1049,6 +1181,15 @@
                 ) {
                     return null;
                 }
+                const inputOptions = formulaInputOptions[
+                    `${block.selectedFormula}.${name}`
+                ];
+                if (inputOptions) {
+                    if (!inputOptions.some(({ value }) => value === input.value)) {
+                        throw new Error(`Choose a valid option for "${name}".`);
+                    }
+                    return input.value;
+                }
                 if (!Number.isFinite(input.value)) throw new Error(`Enter a valid number for "${name}".`);
                 return input.value;
             }
@@ -1059,13 +1200,35 @@
         }
 
         function invokeFormula(formulaName, parameters, values) {
-            if (formulaName === 'estimateStepperSupplyCurrent') {
+            const parameterConfig = formulaParameterRegistry[formulaName];
+            const inputValues = Object.fromEntries(
+                parameters.map(({ name }, index) => [name, values[index]]),
+            );
+            if (parameterConfig?.type === 'destructured_object') {
                 const options = {};
                 parameters.slice(2).forEach(({ name }, index) => {
                     const value = values[index + 2];
                     if (value !== null) options[name] = value;
                 });
-                return CncHardwareMath[formulaName](values[0], values[1], options);
+                return CncHardwareMath[formulaName](
+                    inputValues.supplyVoltage,
+                    inputValues.phaseCurrentAmps,
+                    options,
+                );
+            }
+            if (parameterConfig?.type === 'array_of_objects') {
+                const load = { quantity: inputValues.loadQuantity };
+                if (inputValues.loadPowerWatts !== null) {
+                    load.powerWatts = inputValues.loadPowerWatts;
+                } else {
+                    load.voltage = inputValues.loadVoltage;
+                    load.currentAmps = inputValues.loadCurrentAmps;
+                }
+                return CncHardwareMath[formulaName](
+                    inputValues.supplyVoltage,
+                    [load],
+                    inputValues.efficiency,
+                );
             }
             return CncHardwareMath[formulaName](...values);
         }
@@ -1612,8 +1775,47 @@
             document.querySelectorAll('.border-amber-500').forEach((element) => {
                 element.classList.remove('border-amber-500', 'bg-amber-950/10');
             });
+            document.querySelectorAll('.border-red-500').forEach((element) => {
+                element.classList.remove('border-red-500', 'bg-red-950/10');
+            });
+            const voltageDropThreshold = voltageDropThresholdInput.valueAsNumber;
+            const validVoltageDropThreshold =
+                Number.isFinite(voltageDropThreshold) &&
+                voltageDropThreshold >= 0.1 &&
+                voltageDropThreshold <= 15;
+            voltageDropThresholdStatus.hidden = validVoltageDropThreshold;
+            voltageDropThresholdStatus.textContent = validVoltageDropThreshold
+                ? ''
+                : 'Voltage-drop diagnostics need a threshold from 0.1% to 15%.';
+            voltageDropThresholdInput.setAttribute(
+                'aria-invalid',
+                String(!validVoltageDropThreshold),
+            );
             activeBlocks.forEach((block) => {
                 if (!Number.isFinite(block.outputValue)) return;
+                if (
+                    validVoltageDropThreshold &&
+                    block.selectedFormula === 'dcWireVoltageDrop'
+                ) {
+                    const supplyVoltage = scopeValue(block, 'supplyVoltage', scope);
+                    if (Number.isFinite(supplyVoltage) && supplyVoltage > 0) {
+                        const dropPercent = (block.outputValue / supplyVoltage) * 100;
+                        if (dropPercent > voltageDropThreshold) {
+                            injectWarning(
+                                block.id,
+                                'oneWayLengthMeters',
+                                `Critical design warning: ${dropPercent.toFixed(2)}% voltage drop exceeds your ${voltageDropThreshold}% threshold. Review conductor size, run length, and load current. This is a diagnostic, not an automatic interlock or code-compliance check.`,
+                                'red',
+                            );
+                        } else if (dropPercent > 3) {
+                            injectWarning(
+                                block.id,
+                                'oneWayLengthMeters',
+                                `Design review advised: ${dropPercent.toFixed(2)}% voltage drop exceeds the common 3% planning guideline. Requirements vary by application and jurisdiction.`,
+                            );
+                        }
+                    }
+                }
                 if (block.selectedFormula === 'stepperMaxTargetVoltage' && block.outputValue > 0) {
                     activeBlocks.forEach((otherBlock) => {
                         if (!Object.hasOwn(otherBlock.inputs, 'supplyVoltage')) return;
@@ -1692,13 +1894,20 @@
             }
         }
 
-        function injectWarning(blockId, inputFieldName, message) {
+        function injectWarning(blockId, inputFieldName, message, severity = 'amber') {
             const blockNode = document.getElementById(blockId);
             const label = blockNode?.querySelector(`[data-arg="${inputFieldName}"]`);
             if (!blockNode || !label) return;
-            blockNode.classList.add('border-amber-500', 'bg-amber-950/10');
+            const isCritical = severity === 'red';
+            blockNode.classList.add(
+                isCritical ? 'border-red-500' : 'border-amber-500',
+                isCritical ? 'bg-red-950/10' : 'bg-amber-950/10',
+            );
             const warning = document.createElement('div');
-            warning.className = 'safety-warning-badge text-[11px] font-sans text-amber-400 mt-1 bg-amber-950/40 border border-amber-800/50 p-2 rounded-md leading-relaxed';
+            warning.className = isCritical
+                ? 'safety-warning-badge text-[11px] font-sans text-red-300 mt-1 bg-red-950/40 border border-red-800/50 p-2 rounded-md leading-relaxed'
+                : 'safety-warning-badge text-[11px] font-sans text-amber-400 mt-1 bg-amber-950/40 border border-amber-800/50 p-2 rounded-md leading-relaxed';
+            warning.setAttribute('role', 'alert');
             warning.textContent = message;
             label.parentNode.appendChild(warning);
         }

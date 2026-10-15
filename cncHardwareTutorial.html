@@ -171,8 +171,8 @@
                     <h3 class="font-semibold text-blue-300">Electrical</h3>
                     <p class="mt-2 text-sm leading-6 text-gray-300">
                         DC and AC current, RMS/peak conversions, single- and balanced three-phase real/apparent/reactive
-                        power and power factor, estimated stepper supply current, series RLC impedance/current/phase,
-                        reactance, resonance, and stored energy.
+                        power and power factor, grouped-load DC supply sizing, estimated stepper supply current, series
+                        RLC impedance/current/phase, reactance, resonance, and stored energy.
                     </p>
                 </article>
                 <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
@@ -248,6 +248,57 @@
         </section>
 
         <section>
+            <h2 class="text-xl font-bold">Account for motor and drive losses</h2>
+            <p class="mt-2 leading-7 text-gray-300">
+                <code class="rounded bg-gray-800 px-1.5 py-0.5 text-blue-200">torqueAndRpmToWatts</code>
+                estimates mechanical shaft output. When estimating DC supply demand from that result, place
+                <code class="rounded bg-gray-800 px-1.5 py-0.5 text-blue-200">electricalPowerFromShaft</code>
+                between the shaft-power block and the PSU estimate. It divides shaft power by a combined
+                motor/drive efficiency; its 0.8 default is illustrative, not a motor specification. Then apply the PSU
+                efficiency separately in <code class="text-gray-100">estimateDcSupplyCurrent</code>. These efficiencies
+                describe different conversion losses and should not be combined or counted twice.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="text-xl font-bold">Review DC cable voltage drop</h2>
+            <p class="mt-2 leading-7 text-gray-300">
+                The Studio compares each <code class="text-gray-100">dcWireVoltageDrop</code> result with the
+                configurable “Max wire drop” threshold (default 5%). It also displays an advisory above 3% when the
+                configured threshold is higher. These are design-review prompts, not automatic interlocks, universal
+                code limits, or code-compliance determinations. Applicable limits depend on the installation,
+                jurisdiction, equipment, conductor ampacity, temperature, and other conditions. The formula takes
+                one-way distance and includes both conductors in its resistance estimate.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="text-xl font-bold">Estimate DC supply current from load ratings</h2>
+            <p class="mt-2 leading-7 text-gray-300">
+                Select <code class="rounded bg-gray-800 px-1.5 py-0.5 text-blue-200">estimateDcSupplyCurrent</code>
+                to estimate a PSU's output current for one load group. Enter the group's power in watts, or leave that
+                field blank and enter load voltage and current instead. Set the quantity to the number of identical
+                loads and enter PSU efficiency as a fraction from greater than 0 to 1. The result is
+                <code class="text-gray-100">total load power ÷ efficiency ÷ supply voltage</code>. This is a sizing
+                estimate; it does not account for startup surges, transient demand, wiring losses, or required design
+                margin. If the load starts as mechanical shaft power, convert it with
+                <code class="text-gray-100">electricalPowerFromShaft</code> first, then use the result as the load
+                power here.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="text-xl font-bold">Interpret the three-phase spindle estimate</h2>
+            <p class="mt-2 leading-7 text-gray-300">
+                <code class="text-gray-100">threePhaseAcCurrent</code> estimates balanced three-phase line current
+                from real electrical input power, line-to-line voltage, and power factor. In the industrial profile,
+                the 5.5 kW spindle estimate is intentionally independent of the DC positioning-axis chain; it is not
+                summed with the axis power. The estimate does not model spindle-drive harmonics, starting current,
+                unbalance, or other loads.
+            </p>
+        </section>
+
+        <section>
             <h2 class="text-xl font-bold">Estimate stepper DC supply current</h2>
             <p class="mt-2 leading-7 text-gray-300">
                 Select <code class="rounded bg-gray-800 px-1.5 py-0.5 text-blue-200">estimateStepperSupplyCurrent</code>
@@ -274,8 +325,10 @@
             <p class="mt-2 leading-7 text-amber-100">
                 These calculations are estimates, not a substitute for manufacturer specifications, qualified
                 engineering review, electrical codes, wire ampacity checks, or machine testing. In particular,
-                stepper phase current is not the same as a driver’s DC supply current. Check component ratings and
-                verify any design before building or operating equipment.
+                stepper phase current is not the same as a driver’s DC supply current, and calculated shaft power is
+                not electrical input power. Use measured or manufacturer-specified efficiencies and check component
+                ratings, conductor ampacity, voltage drop, protective devices, and applicable codes before building
+                or operating equipment.
             </p>
         </section>
 

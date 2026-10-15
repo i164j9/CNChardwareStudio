@@ -16,11 +16,12 @@ The app's Tailwind stylesheet is built locally and included as `cncHardwareStyle
 
 ## Features
 
-- Formula blocks for steps/mm and servo counts/mm, motion limits, inertia, torque, power, DC/AC current and power, RLC behavior, and unit conversions.
+- Formula blocks for steps/mm and servo counts/mm, motion limits, inertia, torque, power, DC/AC current and power (including grouped-load DC supply sizing, shaft-to-electrical power conversion, and configurable DC wire-drop diagnostics), RLC behavior, and unit conversions.
 - Ordered calculation pipelines: later blocks can use outputs from earlier blocks as inputs.
 - Parameter-sweep graphs, including torque/inertia and acceleration/deceleration current estimates.
 - A final graph gallery for enabled graph blocks.
 - JSON import and export for saving a pipeline configuration.
+- An importable [industrial spindle power-distribution profile](./industrial-spindle-power-distribution.json) demonstrating motor/drive efficiency, DC PSU current, DC wire-drop warnings, and an independent three-phase spindle-current estimate.
 - Plain-language input help describing each parameter in the context of its formula.
 
 The calculation library is metric-first. Input tooltips and the tutorial describe required units, including when datasheet values need conversion.

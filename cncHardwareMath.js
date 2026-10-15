@@ -798,6 +798,26 @@ const CncHardwareMath = {
     return voltage * current;
   },
 
+  /**
+   * Estimates electrical input power from mechanical shaft output and drive efficiency.
+   * @param {number} shaftPowerWatts - Mechanical power delivered at the shaft.
+   * @param {number} motorDriveEfficiency - Motor and drive efficiency from greater than 0 to 1.
+   */
+  electricalPowerFromShaft(shaftPowerWatts, motorDriveEfficiency = 0.8) {
+    if (
+      !Number.isFinite(shaftPowerWatts) ||
+      shaftPowerWatts < 0 ||
+      !Number.isFinite(motorDriveEfficiency) ||
+      motorDriveEfficiency <= 0 ||
+      motorDriveEfficiency > 1
+    ) {
+      throw new RangeError(
+        "Shaft power must be non-negative and motor/drive efficiency must be in (0, 1].",
+      );
+    }
+    return shaftPowerWatts / motorDriveEfficiency;
+  },
+
   // ==========================================================================
   // 3. MOTION BOTTLENECK & STEP GENERATION LIMITS
   // ==========================================================================

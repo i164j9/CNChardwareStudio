@@ -1,0 +1,80 @@
+[
+  {
+    "selectedFormula": "torqueAndRpmToWatts",
+    "outputVariable": "Mechanical_Shaft_Watts",
+    "graphEnabled": false,
+    "graphInput": "rpm",
+    "graphMin": 0,
+    "graphMax": 3000,
+    "graphSamples": 50,
+    "note": "Mechanical shaft output for one representative servo. The following block estimates motor/drive electrical input separately.",
+    "inputs": {
+      "torqueNm": { "type": "literal", "value": 1.27 },
+      "rpm": { "type": "literal", "value": 3000 }
+    }
+  },
+  {
+    "selectedFormula": "electricalPowerFromShaft",
+    "outputVariable": "Servo_Electrical_Watts",
+    "graphEnabled": true,
+    "graphInput": "shaftPowerWatts",
+    "graphMin": 100,
+    "graphMax": 1000,
+    "graphSamples": 30,
+    "note": "Uses an illustrative 80% combined motor/drive efficiency. Replace this assumption with manufacturer data when available.",
+    "inputs": {
+      "shaftPowerWatts": { "type": "pipe", "value": "Mechanical_Shaft_Watts" },
+      "motorDriveEfficiency": { "type": "literal", "value": 0.8 }
+    }
+  },
+  {
+    "selectedFormula": "estimateDcSupplyCurrent",
+    "outputVariable": "Total_DC_Amps",
+    "graphEnabled": true,
+    "graphInput": "loadPowerWatts",
+    "graphMin": 100,
+    "graphMax": 1500,
+    "graphSamples": 40,
+    "note": "Estimates three identical servo loads from the corrected electrical input power, then applies PSU efficiency separately.",
+    "inputs": {
+      "supplyVoltage": { "type": "literal", "value": 48 },
+      "loadPowerWatts": { "type": "pipe", "value": "Servo_Electrical_Watts" },
+      "loadVoltage": { "type": "literal", "value": 48 },
+      "loadCurrentAmps": { "type": "literal", "value": 0 },
+      "loadQuantity": { "type": "literal", "value": 3 },
+      "efficiency": { "type": "literal", "value": 0.88 }
+    }
+  },
+  {
+    "selectedFormula": "dcWireVoltageDrop",
+    "outputVariable": "Drop_At_Motors",
+    "graphEnabled": true,
+    "graphInput": "current",
+    "graphMin": 1,
+    "graphMax": 40,
+    "graphSamples": 50,
+    "note": "100 m total two-conductor cable is modeled as 50 m one-way. The 5% default warning limit is a design-check setting, not an electrical-code determination.",
+    "inputs": {
+      "supplyVoltage": { "type": "literal", "value": 48 },
+      "current": { "type": "pipe", "value": "Total_DC_Amps" },
+      "oneWayLengthMeters": { "type": "literal", "value": 50 },
+      "conductorAreaMm2": { "type": "literal", "value": 2.5 },
+      "material": { "type": "literal", "value": "copper" }
+    }
+  },
+  {
+    "selectedFormula": "threePhaseAcCurrent",
+    "outputVariable": "AC_Wall_Amps",
+    "graphEnabled": true,
+    "graphInput": "lineVoltage",
+    "graphMin": 200,
+    "graphMax": 480,
+    "graphSamples": 30,
+    "note": "Independent spindle-only estimate: 5.5 kW real electrical input, balanced three-phase, PF 0.82. It is not added to the DC axis loads.",
+    "inputs": {
+      "powerWatts": { "type": "literal", "value": 5500 },
+      "lineVoltage": { "type": "literal", "value": 400 },
+      "powerFactor": { "type": "literal", "value": 0.82 }
+    }
+  }
+]
