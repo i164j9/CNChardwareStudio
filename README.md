@@ -1,0 +1,71 @@
+# CNC Hardware Studio
+
+A browser-based collection of CNC motion, mechanical, and electrical calculators. The main Studio lets you combine numeric formulas in ordered blocks, pass earlier results into later calculations, and graph parameter sweeps.
+
+## Open the Studio
+
+The app uses native browser JavaScript modules, so serve this folder over HTTP rather than opening the HTML directly with a `file://` URL. For example, with Python installed:
+
+```sh
+python3 -m http.server 8000
+```
+
+Then open <http://localhost:8000/cnchardwareFrontend.html>. The frontend links to the user guide at `cncHardwareTutorial.html`.
+
+The app's Tailwind stylesheet is built locally and included as `cncHardwareStyles.css`; it does not need to download styles at runtime. Keep that file next to the HTML documents. The Studio itself has no runtime npm dependency. Once the local files and server are available, it can be used without an internet connection.
+
+## Features
+
+- Formula blocks for steps/mm and servo counts/mm, motion limits, inertia, torque, power, DC/AC current and power, RLC behavior, and unit conversions.
+- Ordered calculation pipelines: later blocks can use outputs from earlier blocks as inputs.
+- Parameter-sweep graphs, including torque/inertia and acceleration/deceleration current estimates.
+- A final graph gallery for enabled graph blocks.
+- JSON import and export for saving a pipeline configuration.
+- Plain-language input help describing each parameter in the context of its formula.
+
+The calculation library is metric-first. Input tooltips and the tutorial describe required units, including when datasheet values need conversion.
+
+## Rebuild the offline stylesheet
+
+Node.js and npm are only needed to regenerate CSS after changing the HTML utility classes:
+
+```sh
+npm install
+npm run build:css
+```
+
+This regenerates `cncHardwareStyles.css` from `tailwind.input.css` and the class names used in the Studio and tutorial. Commit or distribute the generated CSS with the HTML files so normal users do not need Node.js or npm.
+
+## Project files
+
+| File | Purpose |
+| --- | --- |
+| `cnchardwareFrontend.html` | Main browser-based formula pipeline and graphing Studio. |
+| `cncHardwareMath.js` | ES module containing the CNC mechanical, electrical, motion, conversion, and calibration formulas. |
+| `cncHardwareTutorial.html` | In-app tutorial and calculation/safety guidance. |
+| `cncHardwareStyles.css` | Generated, local Tailwind stylesheet required by both HTML pages. |
+| `tailwind.input.css` | Tailwind v4 stylesheet entry point and HTML content sources. |
+| `package.json`, `package-lock.json` | CSS build command and locked build-tool dependencies. |
+| `cncStepsCalculator.js` | Separate steps/mm calculator with belt-driven screw, direct screw, pure belt, conversion, and calibration examples. |
+
+Other JavaScript files in this folder are standalone exercises and are not loaded by the Studio. In particular, `main.js` contains recursive file-renaming behavior tied to a hard-coded directory; inspect it carefully before running it.
+
+## Standalone steps calculator
+
+`cncStepsCalculator.js` includes example calculations and prints their results when run with Node.js:
+
+```sh
+node cncStepsCalculator.js
+```
+
+The formulas use:
+
+- **Belt-driven screw:** `motorSteps × microstepping × (drivenTeeth / driveTeeth) / screwLead`
+- **Direct screw:** `motorSteps × microstepping / screwLead`
+- **Pure belt:** `motorSteps × microstepping / (beltPitch × pulleyTeeth)`
+
+The screw lead and belt pitch are entered in millimeters; the results are steps per millimeter. The script also provides steps/mm-to-steps/inch conversion and a physical-move calibration helper.
+
+## Engineering and safety note
+
+Results are estimates based on the inputs and assumptions documented in the tutorial and formula library. They are not a substitute for manufacturer data, qualified engineering review, applicable electrical codes, wire ampacity checks, or machine testing. In particular, the acceleration/deceleration bus-current graph is an idealized estimate and does not model all motor, driver, thermal, or regenerative-bus behavior.

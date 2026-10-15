@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A practical guide to CNC Hardware Studio formula blocks, inputs, pipelines, and file import/export.">
+    <title>CNC Hardware Studio Tutorial</title>
+    <link rel="stylesheet" href="./cncHardwareStyles.css">
+</head>
+
+<body class="min-h-screen bg-gray-950 font-sans text-gray-100">
+    <header class="border-b border-gray-800 bg-gray-900 px-6 py-5">
+        <div class="mx-auto flex max-w-4xl items-center justify-between gap-4">
+            <div>
+                <p class="text-sm font-semibold uppercase tracking-widest text-blue-400">CNC Hardware Studio</p>
+                <h1 class="mt-1 text-2xl font-bold">Quick-start tutorial</h1>
+            </div>
+            <a href="./cnchardwareFrontend.html"
+                class="rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm font-medium hover:bg-gray-700">
+                Open the calculator
+            </a>
+        </div>
+    </header>
+
+    <main class="mx-auto max-w-4xl space-y-8 px-6 py-8">
+        <section class="rounded-xl border border-blue-900 bg-blue-950/40 p-5">
+            <h2 class="text-lg font-semibold text-blue-200">What this app does</h2>
+            <p class="mt-2 leading-7 text-gray-300">
+                The Studio runs engineering formulas in blocks. A block takes numeric inputs and displays a result.
+                You can connect a later block to an earlier result with a pipe, making a simple calculation pipeline.
+                The math library uses metric units unless a formula name or input below says otherwise.
+            </p>
+        </section>
+
+        <section class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+            <h2 class="text-lg font-semibold">Offline use</h2>
+            <p class="mt-2 leading-7 text-gray-300">
+                Styling is bundled in the local <code class="rounded bg-gray-800 px-1.5 py-0.5 text-blue-200">cncHardwareStyles.css</code>
+                file; the pages no longer fetch Tailwind from a CDN. Keep that CSS file and
+                <code class="rounded bg-gray-800 px-1.5 py-0.5 text-blue-200">cncHardwareMath.js</code> beside the HTML
+                files. For browsers that restrict JavaScript modules opened with a
+                <code class="rounded bg-gray-800 px-1.5 py-0.5 text-blue-200">file://</code> URL, launch the folder
+                using a local web server such as VS Code Live Server. Once the files and local server are available,
+                the app does not need internet access.
+            </p>
+            <p class="mt-2 leading-7 text-gray-300">
+                Developers can rebuild the stylesheet after changing utility classes with
+                <code class="rounded bg-gray-800 px-1.5 py-0.5 text-blue-200">npm install</code> and
+                <code class="rounded bg-gray-800 px-1.5 py-0.5 text-blue-200">npm run build:css</code>.
+                The generated CSS is already included for normal use.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="text-xl font-bold">Create and configure a block</h2>
+            <ol class="mt-3 list-decimal space-y-2 pl-6 leading-7 text-gray-300">
+                <li>Open the calculator and choose <strong class="text-gray-100">Add Formula Block</strong>.</li>
+                <li>Select a formula from the dropdown at the top of the block.</li>
+                <li>Enter a number for each input. The result recalculates as you edit values.</li>
+                <li>Hover over an input name or its ⓘ help marker to see a plain-language description and unit guidance.</li>
+                <li>Use the <strong class="text-gray-100">Value</strong> / <strong class="text-gray-100">Pipe</strong>
+                    selector to enter a value directly or reuse an earlier block’s output.</li>
+                <li>Change the output variable name if you want a more descriptive label in the ledger.</li>
+            </ol>
+            <p class="mt-3 rounded-lg border border-amber-900 bg-amber-950/30 p-4 text-sm leading-6 text-amber-100">
+                Inputs start at zero. Many formulas require positive values, so a block can show an error until you
+                enter valid inputs. Hover over “Error” to see the formula’s error message.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="text-xl font-bold">Example: calculate steps per millimeter</h2>
+            <p class="mt-2 leading-7 text-gray-300">
+                For a 200-step motor, 16× microstepping, a 2 mm belt pitch, and a 20-tooth pulley, select
+                <code class="rounded bg-gray-800 px-1.5 py-0.5 text-blue-200">stepperPureBeltStepsPerMm</code>
+                and enter:
+            </p>
+            <div class="mt-3 overflow-x-auto rounded-xl border border-gray-800 bg-gray-900">
+                <table class="w-full text-left text-sm">
+                    <thead class="text-gray-400">
+                        <tr><th class="p-3">Input</th><th class="p-3">Value</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-800 text-gray-200">
+                        <tr><td class="p-3">motorSteps</td><td class="p-3">200</td></tr>
+                        <tr><td class="p-3">microstepping</td><td class="p-3">16</td></tr>
+                        <tr><td class="p-3">beltPitch</td><td class="p-3">2</td></tr>
+                        <tr><td class="p-3">pulleyTeeth</td><td class="p-3">20</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="mt-3 leading-7 text-gray-300">
+                The result is <strong class="text-emerald-300">80 steps/mm</strong>. This is a calibration estimate
+                from the entered mechanical dimensions; verify it against the actual machine.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="text-xl font-bold">Connect blocks with a pipe</h2>
+            <p class="mt-2 leading-7 text-gray-300">
+                Add another block after the first. Its Pipe dropdown can select outputs from earlier blocks. For
+                example, pipe an earlier DC current result into the <code
+                    class="rounded bg-gray-800 px-1.5 py-0.5 text-blue-200">current</code> input of
+                <code class="rounded bg-gray-800 px-1.5 py-0.5 text-blue-200">dcPowerWatts</code>, then enter a
+                voltage in the other input. The ledger lists the current outputs and their values.
+            </p>
+            <p class="mt-3 leading-7 text-gray-300">
+                Blocks run from top to bottom. Only outputs from blocks above the current block are available, so
+                arrange a producer before the block that uses its result.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="text-xl font-bold">Graph a parameter sweep</h2>
+            <ol class="mt-3 list-decimal space-y-2 pl-6 leading-7 text-gray-300">
+                <li>Turn on <strong class="text-gray-100">📊 Graph Sweep</strong> in a formula block.</li>
+                <li>Choose which numeric input to sweep. The graph recalculates the formula at each sample.</li>
+                <li>Set the minimum and maximum for that input, then choose a sample count from 2 to 500.</li>
+                <li>All other inputs stay at their current literal values or piped results.</li>
+            </ol>
+            <p class="mt-3 leading-7 text-gray-300">
+                The horizontal axis is the selected input and the vertical axis is the formula result. Invalid samples
+                (for example, values outside a formula’s valid domain) are omitted and reported beneath the graph.
+                The graph updates as pipeline inputs change and is saved with the block when you export JSON.
+            </p>
+            <p class="mt-3 leading-7 text-gray-300">
+                The thrust-to-torque formula defaults to sweeping 0–2,500 N in 100 N increments. The reflected-load
+                inertia formula defaults to sweeping gantry mass from 5–150 kg in 5 kg increments. Both presets can
+                be adjusted. The torque graph shows required motor torque, not the motor’s holding-torque rating.
+            </p>
+            <p class="mt-3 leading-7 text-gray-300">
+                Other common sweep inputs also start with convenient ranges: frequency (10–1,000 Hz), inductance
+                (0.5–10 mH or 0.001–0.1 H, depending on the formula’s units), steps or counts per millimeter
+                (10–2,000), and rotational speed (0–3,000 rpm). These are starting points, not hardware limits;
+                change the range to match the system being analyzed.
+            </p>
+            <p class="mt-3 leading-7 text-gray-300">
+                When graphing reflected linear-load inertia, the Studio also plots inertial torque against reflected
+                inertia and overlays reflected inertia and inertial torque against gantry mass on separate vertical
+                scales. The same block also estimates torque-producing motor current and DC bus current through a
+                simplified acceleration/deceleration cycle. Enter the motor torque constant (N·m/A), DC bus voltage,
+                motor/drive efficiency, and acceleration and deceleration durations. Choose either linear axis
+                acceleration (m/s²), converted using screw lead and gear ratio, or motor angular acceleration
+                (rad/s²), converted back to linear acceleration for the annotation.
+            </p>
+            <p class="mt-3 leading-7 text-gray-300">
+                Inertial torque is reflected inertia × motor angular acceleration, and torque-producing current is
+                torque divided by the torque constant. Estimated DC bus current is derived from mechanical power
+                (torque × angular velocity), bus voltage, and efficiency; it can be negative during deceleration to
+                represent idealized regeneration. This estimate excludes winding copper losses, cutting force,
+                friction, drive-specific current control, motor thermal limits, and real regenerative-bus behavior.
+                Enabled block graphs are also collected at the end of the pipeline in the Pipeline Graphs section.
+            </p>
+            <p class="mt-3 rounded-lg border border-amber-900 bg-amber-950/30 p-4 text-sm leading-6 text-amber-100">
+                A sweep is a mathematical exploration, not a safety certification. Ensure the chosen parameter range
+                is physically appropriate before using results to select or operate hardware.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="text-xl font-bold">Formula reference</h2>
+            <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">Motion and mechanics</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        Stepper/servo resolution, mechanical resolution, maximum feed rate, cylinder and reflected
+                        inertia, inertia ratio, torque for thrust, torque-to-watts, and calibration.
+                    </p>
+                </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">Electrical</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        DC and AC current, RMS/peak conversions, single- and balanced three-phase real/apparent/reactive
+                        power and power factor, estimated stepper supply current, series RLC impedance/current/phase,
+                        reactance, resonance, and stored energy.
+                    </p>
+                </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">Conversions</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        Length, mass, force, torque, power, steps/mm to steps/inch, and AWG-to-area conversions.
+                    </p>
+                </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">Units to check</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        For example: wire length in meters, inductance in henries, capacitance in farads, frequency
+                        in hertz, and screw lead in millimeters or meters as specified by the selected formula.
+                    </p>
+                </article>
+            </div>
+            <p class="mt-3 text-sm leading-6 text-gray-400">
+                The visual block editor accepts numeric inputs. The stepper supply-current block presents its
+                options as individual numeric fields: provide exactly one of phase voltage or winding resistance.
+                Helpers requiring arbitrary arrays or specialized wire options, such as combining a list of PSU loads
+                or choosing an AWG/material for wire-drop calculations, remain available in the JavaScript library
+                but are not yet exposed as blocks.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="text-xl font-bold">AC formulas and when to use them</h2>
+            <p class="mt-2 leading-7 text-gray-300">
+                AC formulas below use RMS voltage and current unless the name says peak. RMS values are the effective
+                values normally printed on AC equipment and meters. For a sine wave,
+                <code class="rounded bg-gray-800 px-1.5 py-0.5 text-blue-200">peak = RMS × √2</code>.
+            </p>
+            <div class="mt-4 space-y-3">
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">Current from real power</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        Single phase: <code class="text-gray-100">I = P / (V × PF)</code>.
+                        Balanced three phase: <code class="text-gray-100">I = P / (√3 × Vline × PF)</code>.
+                        Use watts, volts RMS, and a power factor from 0 to 1. For example, 1,000 W at 230 V and PF 0.8
+                        is about 5.43 A single-phase.
+                    </p>
+                </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">Real, apparent, and reactive power</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        Single phase apparent power: <code class="text-gray-100">S = V × I</code> VA;
+                        real power: <code class="text-gray-100">P = V × I × PF</code> W.
+                        Balanced three phase uses <code class="text-gray-100">S = √3 × Vline × Iline</code> and
+                        <code class="text-gray-100">P = √3 × Vline × Iline × PF</code>.
+                        Reactive power magnitude is <code class="text-gray-100">Q = S × √(1 − PF²)</code> var.
+                        The reactive-power helpers return magnitude only, not whether the load is leading or lagging.
+                    </p>
+                </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">Power factor and series RLC</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        Power factor is <code class="text-gray-100">P / S</code>. Series RLC formulas use resistance in
+                        ohms, inductance in henries, capacitance in farads, and frequency in hertz:
+                        <code class="text-gray-100">XL = 2πfL</code>,
+                        <code class="text-gray-100">XC = 1/(2πfC)</code>, and
+                        <code class="text-gray-100">|Z| = √(R² + (XL − XC)²)</code>.
+                        The phase-angle helper returns radians: positive is inductive and negative is capacitive.
+                    </p>
+                </article>
+            </div>
+            <p class="mt-3 rounded-lg border border-amber-900 bg-amber-950/30 p-4 text-sm leading-6 text-amber-100">
+                Three-phase helpers assume a balanced system and use line-to-line RMS voltage with line RMS current.
+                AC current and power calculations based on real power assume sinusoidal quantities and a meaningful
+                power factor; nonlinear loads with harmonic distortion may need true-RMS measurements and more
+                detailed analysis. Ideal RLC results do not include component tolerances, losses, saturation, or
+                parasitic effects.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="text-xl font-bold">Estimate stepper DC supply current</h2>
+            <p class="mt-2 leading-7 text-gray-300">
+                Select <code class="rounded bg-gray-800 px-1.5 py-0.5 text-blue-200">estimateStepperSupplyCurrent</code>
+                to estimate supply-side current from DC supply voltage and motor phase current. Enter exactly one of
+                phase voltage or winding resistance; the optional energized-phase count defaults to 2 and driver
+                efficiency defaults to 0.9. The estimate uses phase electrical power and does not model a driver’s
+                switching behavior, motion-dependent current, or actual motor/driver losses. Treat it as a rough
+                estimate, not a substitute for the driver manufacturer’s supply-current specifications.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="text-xl font-bold">Save and load your pipeline</h2>
+            <ul class="mt-3 list-disc space-y-2 pl-6 leading-7 text-gray-300">
+                <li><strong class="text-gray-100">Save JSON</strong> downloads the current block setup and values.</li>
+                <li><strong class="text-gray-100">Load JSON</strong> rebuilds blocks from a previously saved Studio file.</li>
+                <li>Loading replaces the blocks currently on the canvas.</li>
+                <li>Use the block’s delete button to remove it; downstream pipes that depended on it may need a new source.</li>
+            </ul>
+        </section>
+
+        <section class="rounded-xl border border-amber-900 bg-amber-950/30 p-5">
+            <h2 class="text-lg font-semibold text-amber-200">Safety and engineering note</h2>
+            <p class="mt-2 leading-7 text-amber-100">
+                These calculations are estimates, not a substitute for manufacturer specifications, qualified
+                engineering review, electrical codes, wire ampacity checks, or machine testing. In particular,
+                stepper phase current is not the same as a driver’s DC supply current. Check component ratings and
+                verify any design before building or operating equipment.
+            </p>
+        </section>
+
+        <footer class="border-t border-gray-800 pt-5 text-sm text-gray-500">
+            <a href="./cnchardwareFrontend.html" class="text-blue-300 hover:text-blue-200">Return to CNC Hardware Studio</a>
+        </footer>
+    </main>
+</body>
+
+</html>
