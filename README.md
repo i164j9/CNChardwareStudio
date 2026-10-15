@@ -10,7 +10,7 @@ The app uses native browser JavaScript modules, so serve this folder over HTTP r
 python3 -m http.server 8000
 ```
 
-Then open <http://localhost:8000/cnchardwareFrontend.html>. The frontend links to the user guide at `cncHardwareTutorial.html`.
+Then open <http://localhost:8000/>. The homepage is `index.html` and links to the user guide at `cncHardwareTutorial.html`.
 
 The app's Tailwind stylesheet is built locally and included as `cncHardwareStyles.css`; it does not need to download styles at runtime. Keep that file next to the HTML documents. The Studio itself has no runtime npm dependency. Once the local files and server are available, it can be used without an internet connection.
 
@@ -43,7 +43,7 @@ This regenerates `cncHardwareStyles.css` from `tailwind.input.css` and the class
 
 | File | Purpose |
 | --- | --- |
-| `cnchardwareFrontend.html` | Main browser-based formula pipeline and graphing Studio. |
+| `index.html` | Main browser-based formula pipeline and graphing Studio; the GitHub Pages homepage. |
 | `cncHardwareMath.js` | ES module containing the CNC mechanical, electrical, motion, conversion, and calibration formulas. |
 | `cncHardwareTutorial.html` | In-app tutorial and calculation/safety guidance. |
 | `cncHardwareStyles.css` | Generated, local Tailwind stylesheet required by both HTML pages. |
