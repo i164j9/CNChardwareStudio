@@ -16,10 +16,12 @@ The app's Tailwind stylesheet is built locally and included as `cncHardwareStyle
 
 ## Features
 
-- Formula blocks for steps/mm and servo counts/mm, motion limits, inertia, torque, power, DC/AC current and power (including grouped-load DC supply sizing, shaft-to-electrical power conversion, and configurable DC wire-drop diagnostics), RLC behavior, and unit conversions.
+- Formula blocks for direct-drive and belt-driven screw steps/mm and servo counts/mm, pure-belt steps/mm, motion limits, inertia, torque, power, DC/AC current and power (including grouped-load DC supply sizing, shaft-to-electrical power conversion, and configurable DC wire-drop diagnostics), RLC behavior, and unit conversions.
 - Ordered calculation pipelines: later blocks can use outputs from earlier blocks as inputs.
 - Parameter-sweep graphs, including torque/inertia and acceleration/deceleration current estimates.
 - A final graph gallery for enabled graph blocks.
+- Collapsible, configurable hardware reference charts for angle-related movement and speed, plus stepper/servo axis resolution.
+- A quick-reference unit converter for length (including thou and tenths), motion, mechanical, and electrical units.
 - JSON import and export for saving a pipeline configuration.
 - An importable [industrial spindle power-distribution profile](./industrial-spindle-power-distribution.json) demonstrating motor/drive efficiency, DC PSU current, DC wire-drop warnings, and an independent three-phase spindle-current estimate.
 - Plain-language input help describing each parameter in the context of its formula.

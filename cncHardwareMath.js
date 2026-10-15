@@ -25,6 +25,13 @@ const CncHardwareMath = {
   },
 
   /**
+   * Calculates Stepper Steps/mm for a Direct-Drive Lead Screw or Ball Screw.
+   */
+  stepperDirectScrewStepsPerMm(motorSteps, microstepping, screwLead) {
+    return (motorSteps * microstepping) / screwLead;
+  },
+
+  /**
    * Calculates Stepper Steps/mm for a Pure Belt Drive (e.g., Rack & Pinion or Pulley-to-Belt).
    */
   stepperPureBeltStepsPerMm(motorSteps, microstepping, beltPitch, pulleyTeeth) {
@@ -41,6 +48,13 @@ const CncHardwareMath = {
     const countsPerMotorRev = encoderPpr * 4; // 4x decoding for standard quadrature
     const gearRatio = drivenTeeth / driveTeeth;
     return (countsPerMotorRev * gearRatio) / screwLead;
+  },
+
+  /**
+   * Calculates Servo Quadrature Counts/mm for a Direct-Drive Lead Screw or Ball Screw.
+   */
+  servoDirectScrewCountsPerMm(encoderPpr, screwLead) {
+    return (encoderPpr * 4) / screwLead;
   },
 
   /**

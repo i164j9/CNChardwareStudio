@@ -35,7 +35,7 @@
                 <h1
                     class="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
                     CNC Hardware Studio</h1>
-                <p class="text-xs text-gray-400">Engineering Pipeline + Live Parameter Sweep Analytics</p>
+                <p class="text-xs text-gray-400">CNC calculators for motion, motors, and electrical systems</p>
             </div>
         </div>
         <div class="flex items-center gap-3">
@@ -74,10 +74,11 @@
         <section
             class="lg:col-span-1 bg-gray-900/60 border border-gray-800 rounded-xl p-5 backdrop-blur h-fit sticky top-24">
             <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-                📂 Live Variables Ledger
+                📂 Results you can reuse
             </h2>
-            <p class="text-xs text-gray-500 mb-4">Outputs generated from calculations can be mapped dynamically into
-                downstream input parameters below.</p>
+            <p class="text-xs text-gray-500 mb-4">
+                Use a result from an earlier calculation as an input in a later one. Display-unit choices do not change the value passed between calculations.
+            </p>
 
             <!-- List container for registered execution outputs -->
             <div id="variables-container" class="space-y-2 max-h-[450px] overflow-y-auto pr-1">
@@ -91,21 +92,134 @@
         <!-- Formula Node Interactive Canvas Workspace -->
         <section class="lg:col-span-3 space-y-6">
             <aside class="rounded-xl border border-gray-800 bg-gray-900/40 p-4 text-xs leading-5 text-gray-400">
-                <h2 class="mb-1 font-semibold uppercase tracking-wider text-gray-300">Engineering assumptions</h2>
+                <h2 class="mb-1 font-semibold uppercase tracking-wider text-gray-300">A note about these estimates</h2>
                 <p>
-                    Mechanical shaft output is converted to estimated motor/drive electrical input using the explicit
-                    efficiency block. DC supply efficiency is a separate loss. Wire-drop warnings compare calculated
-                    drop against the adjustable design threshold; they are diagnostics, not protective interlocks.
-                    Three-phase spindle current is an independent balanced-AC estimate unless explicitly connected.
+                    Results are estimates, not machine limits or safety approvals. Check important values against
+                    your motor, driver, power supply, and machine documentation before using them.
                 </p>
                 <p id="voltage-drop-threshold-status" class="mt-1 text-red-300" role="status" hidden></p>
             </aside>
+            <details class="rounded-xl border border-gray-800 bg-gray-900/60 p-5" open>
+                <summary class="cursor-pointer">
+                    <h2 class="inline text-sm font-semibold uppercase tracking-wider text-gray-300">Hardware reference charts</h2>
+                    <p class="mt-1 text-xs leading-5 text-gray-400">
+                        Expand or collapse these optional charts. Change the settings to match your machine; metric is selected by default.
+                    </p>
+                </summary>
+                <div class="mt-4 grid gap-4 xl:grid-cols-2">
+                    <article class="rounded-lg border border-gray-800 bg-gray-950/70 p-4">
+                        <h3 class="text-sm font-semibold text-gray-200">How much does a small angle error move a point?</h3>
+                        <p class="mt-1 text-xs leading-5 text-gray-500">
+                            Imagine a point on an arm or shaft that is slightly turned away from where it should be.
+                            This estimates how far that point shifts.
+                        </p>
+                        <p class="mt-2 rounded-md border border-blue-900/60 bg-blue-950/20 p-2 text-xs leading-5 text-blue-200">
+                            Example: a point 100 mm from the center moves about 1.75 mm when the angle changes by 1°.
+                            Change the example values below to match your hardware.
+                        </p>
+                        <div class="mt-3 grid grid-cols-2 gap-3">
+                            <label class="space-y-1 text-xs text-gray-400">
+                                Measurement units
+                                <select id="angle-unit-system" class="w-full rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-200">
+                                    <option value="metric" selected>Metric (mm)</option>
+                                    <option value="inch">Inches (in)</option>
+                                </select>
+                            </label>
+                            <label class="space-y-1 text-xs text-gray-400">
+                                Distance from center to moving point (<span data-angle-length-unit>mm</span>)
+                                <input id="angle-radius" type="number" min="0.001" step="any" value="100" class="w-full rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-200">
+                                <span class="block text-[11px] leading-4 text-gray-500">For example, pivot to cutter tip or shaft center to the point you care about. This distance is also called the radius.</span>
+                            </label>
+                            <label class="space-y-1 text-xs text-gray-400 col-span-2">
+                                Angle difference (degrees)
+                                <input id="angle-max-degrees" type="number" min="0.000001" step="any" value="1" class="w-full rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-200">
+                                <span class="block text-[11px] leading-4 text-gray-500">How far the arm or shaft is turned from its intended position. A small angle like 1° can still move a distant point noticeably.</span>
+                            </label>
+                            <label class="space-y-1 text-xs text-gray-400 col-span-2">
+                                Time for this movement (seconds)
+                                <input id="angle-duration-seconds" type="number" min="0.000001" step="any" value="1" class="w-full rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-200">
+                                <span class="block text-[11px] leading-4 text-gray-500">How long it takes to move through the angle above. This is used to estimate average speed.</span>
+                            </label>
+                        </div>
+                        <canvas id="angle-tolerance-chart" class="mt-3 block h-64 w-full" role="img" aria-label="How far the point moves for each angle difference"></canvas>
+                        <p id="angle-chart-status" class="mt-2 min-h-5 text-xs text-amber-300" role="status"></p>
+                        <h4 class="mt-4 text-xs font-semibold text-gray-300">How the point moves during that time</h4>
+                        <p class="mt-1 text-xs leading-5 text-gray-500">For a simple estimate, this assumes the point moves at a steady speed from start to finish. Real machines may speed up and slow down.</p>
+                        <canvas id="angle-time-chart" class="mt-2 block h-64 w-full" role="img" aria-label="How far the point has moved over time"></canvas>
+                        <p id="angle-time-status" class="mt-2 min-h-5 text-xs text-amber-300" role="status"></p>
+                    </article>
+
+                    <article class="rounded-lg border border-gray-800 bg-gray-950/70 p-4">
+                        <h3 class="text-sm font-semibold text-gray-200">How finely can the axis move?</h3>
+                        <p class="mt-1 text-xs leading-5 text-gray-500">
+                            See how the motor and drive affect the number of steps or encoder counts needed to move the axis.
+                            Use numbers from your motor, screw, belt, or pulley documentation when available.
+                        </p>
+                        <div class="mt-3 grid grid-cols-2 gap-3">
+                            <label class="space-y-1 text-xs text-gray-400">
+                                Measurement units
+                                <select id="resolution-unit-system" class="w-full rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-200">
+                                    <option value="metric" selected>Metric (mm)</option>
+                                    <option value="inch">Inches (in)</option>
+                                </select>
+                            </label>
+                            <label class="space-y-1 text-xs text-gray-400">
+                                Motor type
+                                <select id="resolution-motor-type" class="w-full rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-200">
+                                    <option value="stepper" selected>Stepper</option>
+                                    <option value="servo">Servo</option>
+                                </select>
+                            </label>
+                            <label class="space-y-1 text-xs text-gray-400 col-span-2">
+                                Drive type
+                                <select id="resolution-drive-type" class="w-full rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-200">
+                                    <option value="direct" selected>Direct-drive screw</option>
+                                    <option value="geared">Geared screw</option>
+                                    <option value="belt">Belt and pulley</option>
+                                </select>
+                            </label>
+                            <label class="resolution-stepper-field space-y-1 text-xs text-gray-400">
+                                Motor full steps per turn
+                                <input id="resolution-motor-steps" type="number" min="1" step="1" value="200" class="w-full rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-200">
+                            </label>
+                            <label class="resolution-stepper-field space-y-1 text-xs text-gray-400">
+                                Microsteps per full step
+                                <input id="resolution-microsteps" type="number" min="1" step="1" value="16" class="w-full rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-200">
+                            </label>
+                            <label class="resolution-servo-field space-y-1 text-xs text-gray-400" hidden>
+                                Encoder pulses per turn (PPR)
+                                <input id="resolution-encoder-ppr" type="number" min="1" step="1" value="1000" class="w-full rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-200">
+                            </label>
+                            <label class="resolution-gear-field space-y-1 text-xs text-gray-400" hidden>
+                                Motor turns per screw turn
+                                <input id="resolution-gear-ratio" type="number" min="0.001" step="any" value="3" class="w-full rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-200">
+                            </label>
+                            <label class="space-y-1 text-xs text-gray-400">
+                                <span data-resolution-range-label>Minimum screw lead (mm)</span>
+                                <input id="resolution-range-min" type="number" min="0.001" step="any" value="2" class="w-full rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-200">
+                            </label>
+                            <label class="space-y-1 text-xs text-gray-400">
+                                <span data-resolution-range-label>Maximum screw lead (mm)</span>
+                                <input id="resolution-range-max" type="number" min="0.001" step="any" value="10" class="w-full rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-200">
+                            </label>
+                            <label class="resolution-pulley-field space-y-1 text-xs text-gray-400" hidden>
+                                Pulley teeth
+                                <input id="resolution-pulley-teeth" type="number" min="1" step="1" value="20" class="w-full rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-200">
+                            </label>
+                        </div>
+                        <canvas id="resolution-chart" class="mt-3 block h-64 w-full" role="img" aria-label="Axis resolution for configurable motor and drive hardware"></canvas>
+                        <p id="resolution-chart-status" class="mt-2 min-h-5 text-xs text-amber-300" role="status"></p>
+                    </article>
+                </div>
+            </details>
             <div id="canvas-placeholder"
                 class="text-center py-20 border-2 border-dashed border-gray-800 rounded-2xl bg-gray-900/20">
                 <span class="text-4xl block mb-3 opacity-60">⛓️</span>
-                <h3 class="text-base font-semibold text-gray-300">Your Engineering Canvas is Empty</h3>
-                <p class="text-xs text-gray-500 max-w-sm mx-auto mt-1 mb-4">Mix parameters, wire up steps-per-mm,
-                    mechanical inertias, and electric power bounds fluidly.</p>
+                <h3 class="text-base font-semibold text-gray-300">Start with a calculation</h3>
+                <p class="text-sm text-gray-400 max-w-md mx-auto mt-2 mb-4">
+                    Add a block, choose what you want to calculate, and enter the values you know. The answer updates as you type.
+                    You can ignore advanced options until you need them.
+                </p>
             </div>
 
             <!-- Live Calculation Pipeline Cards Stack -->
@@ -120,6 +234,41 @@
         </section>
 
     </main>
+
+    <section class="col-span-full mx-auto mb-8 w-full max-w-7xl rounded-xl border border-gray-800 bg-gray-900/60 p-5" aria-labelledby="quick-unit-converter-title">
+        <div class="mb-4">
+            <h2 id="quick-unit-converter-title" class="text-sm font-semibold uppercase tracking-wider text-gray-300">Quick unit converter</h2>
+            <p class="mt-1 text-xs leading-5 text-gray-400">
+                Enter a value and choose its unit to see the equivalent in every unit in that group. Includes common electrical units.
+            </p>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-3">
+            <label class="space-y-1 text-xs text-gray-400">
+                Conversion type
+                <select id="quick-converter-dimension" class="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-gray-200"></select>
+            </label>
+            <label class="space-y-1 text-xs text-gray-400">
+                Value
+                <input id="quick-converter-value" type="number" step="any" value="1" class="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-gray-200" aria-describedby="quick-converter-status">
+            </label>
+            <label class="space-y-1 text-xs text-gray-400">
+                Input unit
+                <select id="quick-converter-unit" class="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-gray-200"></select>
+            </label>
+        </div>
+        <p id="quick-converter-status" class="mt-3 text-xs text-amber-300" role="status" aria-live="polite"></p>
+        <div class="mt-3 max-h-80 overflow-auto rounded-lg border border-gray-800">
+            <table class="w-full text-left text-sm">
+                <thead class="sticky top-0 bg-gray-900 text-xs uppercase tracking-wider text-gray-400">
+                    <tr>
+                        <th scope="col" class="px-3 py-2">Equivalent unit</th>
+                        <th scope="col" class="px-3 py-2 text-right">Converted value</th>
+                    </tr>
+                </thead>
+                <tbody id="quick-converter-results" class="divide-y divide-gray-800 text-gray-200"></tbody>
+            </table>
+        </div>
+    </section>
 
     <!-- Embedded Orchestration Engine Logic -->
     <script type="module">
@@ -186,6 +335,282 @@
                 inputs: ['shaftPowerWatts', 'motorDriveEfficiency'],
             },
         };
+        const resultUnitOptions = {
+            length: {
+                default: 'mm',
+                units: [
+                    { label: 'nm', toBase: 1e-9 },
+                    { label: 'µm', toBase: 1e-6 },
+                    { label: 'mm', toBase: 1e-3 },
+                    { label: 'm', toBase: 1 },
+                    { label: 'in', toBase: 0.0254 },
+                    { label: 'ft', toBase: 0.3048 },
+                ],
+            },
+            resolution: {
+                default: 'steps/mm',
+                units: [
+                    { label: 'steps/mm', toBase: 1000 },
+                    { label: 'steps/in', toBase: 1 / 0.0254 },
+                ],
+            },
+            countResolution: {
+                default: 'counts/mm',
+                units: [
+                    { label: 'counts/mm', toBase: 1000 },
+                    { label: 'counts/in', toBase: 1 / 0.0254 },
+                ],
+            },
+            displacementPerCount: {
+                default: 'mm/step or count',
+                units: [
+                    { label: 'nm/step or count', toBase: 1e-9 },
+                    { label: 'µm/step or count', toBase: 1e-6 },
+                    { label: 'mm/step or count', toBase: 1e-3 },
+                    { label: 'in/step or count', toBase: 0.0254 },
+                ],
+            },
+            speed: {
+                default: 'mm/min',
+                units: [
+                    { label: 'mm/min', toBase: 1e-3 },
+                    { label: 'm/min', toBase: 1 },
+                    { label: 'in/min', toBase: 0.0254 },
+                    { label: 'ft/min', toBase: 0.3048 },
+                ],
+            },
+            current: {
+                default: 'A',
+                units: [
+                    { label: 'µA', toBase: 1e-6 },
+                    { label: 'mA', toBase: 1e-3 },
+                    { label: 'A', toBase: 1 },
+                    { label: 'kA', toBase: 1e3 },
+                ],
+            },
+            voltage: {
+                default: 'V',
+                units: [
+                    { label: 'µV', toBase: 1e-6 },
+                    { label: 'mV', toBase: 1e-3 },
+                    { label: 'V', toBase: 1 },
+                    { label: 'kV', toBase: 1e3 },
+                ],
+            },
+            power: {
+                default: 'W',
+                units: [
+                    { label: 'mW', toBase: 1e-3 },
+                    { label: 'W', toBase: 1 },
+                    { label: 'kW', toBase: 1e3 },
+                    { label: 'MW', toBase: 1e6 },
+                ],
+            },
+            apparentPower: {
+                default: 'VA',
+                units: [
+                    { label: 'mVA', toBase: 1e-3 },
+                    { label: 'VA', toBase: 1 },
+                    { label: 'kVA', toBase: 1e3 },
+                    { label: 'MVA', toBase: 1e6 },
+                ],
+            },
+            reactivePower: {
+                default: 'var',
+                units: [
+                    { label: 'mvar', toBase: 1e-3 },
+                    { label: 'var', toBase: 1 },
+                    { label: 'kvar', toBase: 1e3 },
+                    { label: 'Mvar', toBase: 1e6 },
+                ],
+            },
+            resistance: {
+                default: 'Ω',
+                units: [
+                    { label: 'mΩ', toBase: 1e-3 },
+                    { label: 'Ω', toBase: 1 },
+                    { label: 'kΩ', toBase: 1e3 },
+                    { label: 'MΩ', toBase: 1e6 },
+                ],
+            },
+            frequency: {
+                default: 'Hz',
+                units: [
+                    { label: 'Hz', toBase: 1 },
+                    { label: 'kHz', toBase: 1e3 },
+                    { label: 'MHz', toBase: 1e6 },
+                ],
+            },
+            energy: {
+                default: 'J',
+                units: [
+                    { label: 'mJ', toBase: 1e-3 },
+                    { label: 'J', toBase: 1 },
+                    { label: 'kJ', toBase: 1e3 },
+                ],
+            },
+            inductance: {
+                default: 'H',
+                units: [
+                    { label: 'µH', toBase: 1e-6 },
+                    { label: 'mH', toBase: 1e-3 },
+                    { label: 'H', toBase: 1 },
+                ],
+            },
+            capacitance: {
+                default: 'F',
+                units: [
+                    { label: 'pF', toBase: 1e-12 },
+                    { label: 'nF', toBase: 1e-9 },
+                    { label: 'µF', toBase: 1e-6 },
+                    { label: 'mF', toBase: 1e-3 },
+                    { label: 'F', toBase: 1 },
+                ],
+            },
+            torque: {
+                default: 'N·m',
+                units: [
+                    { label: 'µN·m', toBase: 1e-6 },
+                    { label: 'mN·m', toBase: 1e-3 },
+                    { label: 'N·m', toBase: 1 },
+                    { label: 'N·cm', toBase: 0.01 },
+                    { label: 'N·mm', toBase: 0.001 },
+                    { label: 'lb·in', toBase: 0.1129848290276 },
+                    { label: 'lb·ft', toBase: 1.3558179483314 },
+                ],
+            },
+            area: {
+                default: 'mm²',
+                units: [
+                    { label: 'mm²', toBase: 1e-6 },
+                    { label: 'cm²', toBase: 1e-4 },
+                    { label: 'm²', toBase: 1 },
+                    { label: 'in²', toBase: 0.00064516 },
+                ],
+            },
+            angle: {
+                default: 'rad',
+                units: [
+                    { label: 'rad', toBase: 1 },
+                    { label: '°', toBase: Math.PI / 180 },
+                ],
+            },
+            mass: {
+                default: 'kg',
+                units: [
+                    { label: 'g', toBase: 0.001 },
+                    { label: 'kg', toBase: 1 },
+                    { label: 'lb', toBase: 0.45359237 },
+                ],
+            },
+            force: {
+                default: 'N',
+                units: [
+                    { label: 'mN', toBase: 1e-3 },
+                    { label: 'N', toBase: 1 },
+                    { label: 'lbf', toBase: 4.4482216152605 },
+                ],
+            },
+        };
+        const formulaResultUnits = {
+            stepperScrewStepsPerMm: { dimension: 'resolution', nativeFactor: 1000 },
+            stepperDirectScrewStepsPerMm: { dimension: 'resolution', nativeFactor: 1000 },
+            stepperPureBeltStepsPerMm: { dimension: 'resolution', nativeFactor: 1000 },
+            servoScrewCountsPerMm: { dimension: 'countResolution', nativeFactor: 1000 },
+            servoDirectScrewCountsPerMm: { dimension: 'countResolution', nativeFactor: 1000 },
+            getMechanicalResolution: { dimension: 'displacementPerCount', nativeFactor: 1e-3 },
+            stepperMaxTargetVoltage: { dimension: 'voltage' },
+            estimateTotalPsuCurrent: { dimension: 'current' },
+            dcCurrentFromPower: { dimension: 'current' },
+            currentFromVoltageAndResistance: { dimension: 'current' },
+            singlePhaseAcCurrent: { dimension: 'current' },
+            threePhaseAcCurrent: { dimension: 'current' },
+            acRmsVoltageToPeak: { dimension: 'voltage' },
+            acPeakVoltageToRms: { dimension: 'voltage' },
+            acRmsCurrentToPeak: { dimension: 'current' },
+            acPeakCurrentToRms: { dimension: 'current' },
+            singlePhaseAcApparentPower: { dimension: 'apparentPower' },
+            threePhaseAcApparentPower: { dimension: 'apparentPower' },
+            singlePhaseAcRealPower: { dimension: 'power' },
+            threePhaseAcRealPower: { dimension: 'power' },
+            singlePhaseAcReactivePower: { dimension: 'reactivePower' },
+            threePhaseAcReactivePower: { dimension: 'reactivePower' },
+            singlePhaseAcPowerFactor: { unit: 'ratio' },
+            threePhaseAcPowerFactor: { unit: 'ratio' },
+            seriesRlcImpedanceOhms: { dimension: 'resistance' },
+            seriesRlcCurrentAmps: { dimension: 'current' },
+            seriesRlcPowerFactor: { unit: 'ratio' },
+            seriesRlcPhaseAngleRadians: { dimension: 'angle' },
+            inductiveReactanceOhms: { dimension: 'resistance' },
+            capacitiveReactanceOhms: { dimension: 'resistance' },
+            lcResonantFrequencyHz: { dimension: 'frequency' },
+            inductorEnergyJoules: { dimension: 'energy' },
+            capacitorEnergyJoules: { dimension: 'energy' },
+            inductanceFromVoltageAndCurrentRamp: { dimension: 'inductance' },
+            capacitanceFromCurrentAndVoltageRamp: { dimension: 'capacitance' },
+            estimateDcSupplyCurrent: { dimension: 'current' },
+            estimateStepperSupplyCurrent: { dimension: 'current' },
+            awgToSquareMillimeters: { dimension: 'area', nativeFactor: 1e-6 },
+            dcWireVoltageDrop: { dimension: 'voltage' },
+            dcWireVoltageDropAwg: { dimension: 'voltage' },
+            dcPowerWatts: { dimension: 'power' },
+            electricalPowerFromShaft: { dimension: 'power' },
+            maxFeedRateByFrequency: { dimension: 'speed', nativeFactor: 1e-3 },
+            cylinderInertia: { unit: 'kg·m²' },
+            reflectedLinearLoadInertia: { unit: 'kg·m²' },
+            getInertiaRatio: { unit: ':1' },
+            requiredTorqueForThrust: { dimension: 'torque' },
+            torqueAndRpmToWatts: { dimension: 'power' },
+            millimetersToInches: { dimension: 'length', nativeFactor: 0.0254 },
+            inchesToMillimeters: { dimension: 'length', nativeFactor: 1e-3 },
+            metersToFeet: { dimension: 'length', nativeFactor: 0.3048 },
+            feetToMeters: { dimension: 'length' },
+            kilogramsToPounds: { dimension: 'mass', nativeFactor: 0.45359237 },
+            poundsToKilograms: { dimension: 'mass' },
+            newtonsToPoundForce: { dimension: 'force', nativeFactor: 4.4482216152605 },
+            poundForceToNewtons: { dimension: 'force' },
+            newtonMetersToPoundFeet: { dimension: 'torque', nativeFactor: 1.3558179483314 },
+            poundFeetToNewtonMeters: { dimension: 'torque' },
+            newtonMetersToPoundInches: { dimension: 'torque', nativeFactor: 0.1129848290276 },
+            poundInchesToNewtonMeters: { dimension: 'torque' },
+            wattsToHorsepower: { dimension: 'power', nativeFactor: 745.6998715822702 },
+            horsepowerToWatts: { dimension: 'power' },
+            stepsPerMmToStepsPerInch: { dimension: 'resolution', nativeFactor: 1 / 0.0254 },
+            stepsPerInchToStepsPerMm: { dimension: 'resolution', nativeFactor: 1000 },
+            calibrateSteps: { unit: 'steps or counts' },
+        };
+        const formulaDisplayNames = {
+            stepperScrewStepsPerMm: 'Stepper: belt-driven screw steps per distance',
+            stepperDirectScrewStepsPerMm: 'Stepper: direct-drive screw steps per distance',
+            stepperPureBeltStepsPerMm: 'Stepper: belt axis steps per distance',
+            servoScrewCountsPerMm: 'Servo: belt-driven screw counts per distance',
+            servoDirectScrewCountsPerMm: 'Servo: direct-drive screw counts per distance',
+            getMechanicalResolution: 'Axis movement per step or count',
+            stepperMaxTargetVoltage: 'Estimated maximum stepper driver voltage',
+            estimateTotalPsuCurrent: 'Estimated shared motor supply current',
+            dcCurrentFromPower: 'DC current from power and voltage',
+            currentFromVoltageAndResistance: 'Current from voltage and resistance',
+            singlePhaseAcCurrent: 'Single-phase AC current',
+            threePhaseAcCurrent: 'Three-phase AC current',
+            dcPowerWatts: 'DC power from voltage and current',
+            maxFeedRateByFrequency: 'Maximum axis speed from controller pulse rate',
+            requiredTorqueForThrust: 'Motor torque needed for linear force',
+            torqueAndRpmToWatts: 'Shaft power from torque and speed',
+            calibrateSteps: 'Calibrate steps or counts from a measured move',
+        };
+        const formulaDescriptions = {
+            stepperScrewStepsPerMm: 'Finds how many controller steps move a screw-driven axis by one millimeter. Use this when a belt or gear connects the motor to the screw.',
+            stepperDirectScrewStepsPerMm: 'Finds how many controller steps move a directly coupled screw-driven axis by one millimeter.',
+            stepperPureBeltStepsPerMm: 'Finds how many controller steps move a belt axis by one millimeter, using belt pitch and pulley teeth.',
+            servoScrewCountsPerMm: 'Finds how many encoder counts move a screw-driven servo axis by one millimeter. Use this when a belt or gear connects the motor to the screw.',
+            servoDirectScrewCountsPerMm: 'Finds how many encoder counts move a directly coupled servo screw by one millimeter.',
+            dcCurrentFromPower: 'Calculates the current a DC load draws from its power and supply voltage.',
+            dcPowerWatts: 'Calculates electrical power from voltage multiplied by current.',
+            maxFeedRateByFrequency: 'Estimates the fastest axis speed the controller can command at the chosen steps-per-millimeter setting.',
+            calibrateSteps: 'Adjusts a steps-per-unit setting using the commanded move and the distance the machine actually moved.',
+            requiredTorqueForThrust: 'Estimates screw-shaft torque needed to produce a chosen linear force.',
+            getMechanicalResolution: 'Shows the smallest axis movement represented by one step or encoder count.',
+        };
         const formulaInputOptions = {
             'dcWireVoltageDrop.material': [
                 { value: 'copper', label: 'Copper' },
@@ -220,6 +645,11 @@
                 drivenTeeth: 'Number of teeth on the screw/output pulley or gear. The transmission ratio is driven teeth ÷ drive teeth.',
                 screwLead: 'Distance the screw moves in one revolution, in millimeters. This is lead (travel per turn), not thread pitch unless they are equal.',
             },
+            stepperDirectScrewStepsPerMm: {
+                motorSteps: 'Full-step count for one motor revolution, usually 200 for a 1.8° stepper. Find it in the motor datasheet.',
+                microstepping: 'Driver setting for how many microsteps divide each full motor step, such as 8 or 16.',
+                screwLead: 'Distance the directly driven screw moves in one revolution, in millimeters.',
+            },
             stepperPureBeltStepsPerMm: {
                 motorSteps: 'Full-step count for one motor revolution, usually 200 for a 1.8° stepper.',
                 microstepping: 'Driver setting for how many microsteps divide each full motor step, such as 8 or 16.',
@@ -231,6 +661,10 @@
                 driveTeeth: 'Number of teeth on the motor/input pulley or gear.',
                 drivenTeeth: 'Number of teeth on the screw/output pulley or gear. The transmission ratio is driven teeth ÷ drive teeth.',
                 screwLead: 'Distance the screw moves in one revolution, in millimeters. This is lead (travel per turn), not thread pitch unless equal.',
+            },
+            servoDirectScrewCountsPerMm: {
+                encoderPpr: 'Encoder pulses (lines) per motor revolution before quadrature decoding. This formula multiplies the value by 4.',
+                screwLead: 'Distance the directly driven screw moves in one revolution, in millimeters.',
             },
             getMechanicalResolution: {
                 stepsOrCountsPerMm: 'Configured motor steps or encoder counts required to move the axis by 1 mm. The result is millimeters per step/count.',
@@ -640,6 +1074,367 @@
         importBtn.addEventListener('click', () => importFile.click());
         importFile.addEventListener('change', importTimelineConfiguration);
         voltageDropThresholdInput.addEventListener('input', evaluatePipeline);
+        initializeReferenceCharts();
+        initializeQuickUnitConverter();
+
+        function initializeQuickUnitConverter() {
+            const dimensionSelect = document.getElementById('quick-converter-dimension');
+            const valueInput = document.getElementById('quick-converter-value');
+            const unitSelect = document.getElementById('quick-converter-unit');
+            const resultsBody = document.getElementById('quick-converter-results');
+            const status = document.getElementById('quick-converter-status');
+            const dimensionGroups = [
+                {
+                    label: 'Length and motion',
+                    dimensions: [
+                        ['length', 'Length'],
+                        ['area', 'Area'],
+                        ['speed', 'Speed'],
+                        ['angle', 'Angle'],
+                    ],
+                },
+                {
+                    label: 'Electrical',
+                    dimensions: [
+                        ['voltage', 'Voltage'],
+                        ['current', 'Current'],
+                        ['resistance', 'Resistance'],
+                        ['power', 'Real power'],
+                        ['apparentPower', 'Apparent power'],
+                        ['reactivePower', 'Reactive power'],
+                        ['frequency', 'Frequency'],
+                        ['energy', 'Energy'],
+                        ['inductance', 'Inductance'],
+                        ['capacitance', 'Capacitance'],
+                    ],
+                },
+                {
+                    label: 'Mechanical',
+                    dimensions: [
+                        ['force', 'Force'],
+                        ['torque', 'Torque'],
+                        ['mass', 'Mass'],
+                    ],
+                },
+            ];
+            const dimensionLabels = new Map(dimensionGroups.flatMap(({dimensions}) => dimensions));
+            const extendedLengthUnits = [
+                {label: 'km', toBase: 1000},
+                {label: 'Thou (0.001 in)', toBase: 0.0000254},
+                {label: 'Tenth (0.0001 in)', toBase: 0.00000254},
+                {label: 'mile', toBase: 1609.344},
+                {label: 'yd', toBase: 0.9144},
+            ];
+
+            dimensionGroups.forEach(({label, dimensions}) => {
+                const group = document.createElement('optgroup');
+                group.label = label;
+                dimensions.forEach(([dimension, name]) => {
+                    const option = document.createElement('option');
+                    option.value = dimension;
+                    option.textContent = name;
+                    group.append(option);
+                });
+                dimensionSelect.append(group);
+            });
+
+            dimensionSelect.addEventListener('change', updateUnits);
+            valueInput.addEventListener('input', updateResults);
+            unitSelect.addEventListener('change', updateResults);
+            dimensionSelect.value = 'length';
+            updateUnits();
+
+            function getUnits() {
+                const registeredUnits = resultUnitOptions[dimensionSelect.value].units;
+                return dimensionSelect.value === 'length'
+                    ? [...registeredUnits, ...extendedLengthUnits]
+                    : registeredUnits;
+            }
+
+            function updateUnits() {
+                unitSelect.replaceChildren();
+                getUnits().forEach(({label}) => {
+                    const option = document.createElement('option');
+                    option.value = label;
+                    option.textContent = label;
+                    unitSelect.append(option);
+                });
+                unitSelect.value = resultUnitOptions[dimensionSelect.value].default;
+                updateResults();
+            }
+
+            function updateResults() {
+                const value = valueInput.valueAsNumber;
+                const units = getUnits();
+                const sourceUnit = units.find(({label}) => label === unitSelect.value);
+                resultsBody.replaceChildren();
+
+                if (!Number.isFinite(value) || !sourceUnit) {
+                    status.textContent = 'Enter a valid number to see conversions.';
+                    return;
+                }
+
+                const baseValue = value * sourceUnit.toBase;
+                status.textContent = `Showing ${formatQuickConversionValue(value)} ${sourceUnit.label} in all ${dimensionLabels.get(dimensionSelect.value).toLowerCase()} units.`;
+                units.forEach(({label, toBase}) => {
+                    const row = document.createElement('tr');
+                    const unitCell = document.createElement('th');
+                    const valueCell = document.createElement('td');
+                    unitCell.scope = 'row';
+                    unitCell.className = 'px-3 py-2 font-medium';
+                    unitCell.textContent = label;
+                    valueCell.className = 'px-3 py-2 text-right font-mono tabular-nums';
+                    valueCell.textContent = formatQuickConversionValue(baseValue / toBase);
+                    row.append(unitCell, valueCell);
+                    resultsBody.append(row);
+                });
+            }
+        }
+
+        function formatQuickConversionValue(value) {
+            if (value === 0) return '0';
+            return value.toLocaleString(undefined, {maximumSignificantDigits: 8});
+        }
+
+        function initializeReferenceCharts() {
+            const angleUnitSystem = document.getElementById('angle-unit-system');
+            const angleRadius = document.getElementById('angle-radius');
+            const angleMaxDegrees = document.getElementById('angle-max-degrees');
+            const angleDurationSeconds = document.getElementById('angle-duration-seconds');
+            const resolutionUnitSystem = document.getElementById('resolution-unit-system');
+            const resolutionMotorType = document.getElementById('resolution-motor-type');
+            const resolutionDriveType = document.getElementById('resolution-drive-type');
+            const resolutionMotorSteps = document.getElementById('resolution-motor-steps');
+            const resolutionMicrosteps = document.getElementById('resolution-microsteps');
+            const resolutionEncoderPpr = document.getElementById('resolution-encoder-ppr');
+            const resolutionGearRatio = document.getElementById('resolution-gear-ratio');
+            const resolutionRangeMin = document.getElementById('resolution-range-min');
+            const resolutionRangeMax = document.getElementById('resolution-range-max');
+            const resolutionPulleyTeeth = document.getElementById('resolution-pulley-teeth');
+            const angleChart = document.getElementById('angle-tolerance-chart');
+            const angleStatus = document.getElementById('angle-chart-status');
+            const angleTimeChart = document.getElementById('angle-time-chart');
+            const angleTimeStatus = document.getElementById('angle-time-status');
+            const resolutionChart = document.getElementById('resolution-chart');
+            const resolutionStatus = document.getElementById('resolution-chart-status');
+
+            const refresh = () => {
+                updateReferenceChartControls();
+                drawAngleToleranceChart();
+                drawAxisResolutionChart();
+            };
+
+            [
+                angleRadius,
+                angleMaxDegrees,
+                angleDurationSeconds,
+                resolutionMotorType,
+                resolutionDriveType,
+                resolutionMotorSteps,
+                resolutionMicrosteps,
+                resolutionEncoderPpr,
+                resolutionGearRatio,
+                resolutionRangeMin,
+                resolutionRangeMax,
+                resolutionPulleyTeeth,
+            ].forEach((input) => {
+                input.addEventListener('input', refresh);
+                input.addEventListener('change', refresh);
+            });
+
+            angleUnitSystem.addEventListener('change', () => {
+                convertChartLengthInput(angleRadius, angleUnitSystem.dataset.previousUnit, angleUnitSystem.value);
+                angleUnitSystem.dataset.previousUnit = angleUnitSystem.value;
+                refresh();
+            });
+            resolutionUnitSystem.addEventListener('change', () => {
+                const previousUnit = resolutionUnitSystem.dataset.previousUnit;
+                convertChartLengthInput(resolutionRangeMin, previousUnit, resolutionUnitSystem.value);
+                convertChartLengthInput(resolutionRangeMax, previousUnit, resolutionUnitSystem.value);
+                resolutionUnitSystem.dataset.previousUnit = resolutionUnitSystem.value;
+                refresh();
+            });
+
+            window.addEventListener('resize', () => {
+                drawAngleToleranceChart();
+                drawAxisResolutionChart();
+            });
+
+            angleUnitSystem.dataset.previousUnit = angleUnitSystem.value;
+            resolutionUnitSystem.dataset.previousUnit = resolutionUnitSystem.value;
+
+            function convertChartLengthInput(input, fromUnit, toUnit) {
+                if (fromUnit === toUnit || !Number.isFinite(input.valueAsNumber)) return;
+                const fromMillimeters = fromUnit === 'inch' ? 25.4 : 1;
+                const toMillimeters = toUnit === 'inch' ? 25.4 : 1;
+                input.value = (input.valueAsNumber * fromMillimeters / toMillimeters).toPrecision(6);
+            }
+
+            function updateReferenceChartControls() {
+                const angleUnit = angleUnitSystem.value === 'inch' ? 'in' : 'mm';
+                document.querySelectorAll('[data-angle-length-unit]').forEach((element) => {
+                    element.textContent = angleUnit;
+                });
+                const resolutionUnit = resolutionUnitSystem.value === 'inch' ? 'in' : 'mm';
+                const driveType = resolutionDriveType.value;
+                document.querySelectorAll('[data-resolution-range-label]').forEach((element, index) => {
+                    const rangeName = driveType === 'belt' ? 'Belt pitch' : 'Screw lead';
+                    element.textContent = `${index === 0 ? 'Minimum' : 'Maximum'} ${rangeName.toLowerCase()} (${resolutionUnit})`;
+                });
+                document.querySelectorAll('.resolution-stepper-field').forEach((element) => {
+                    element.hidden = resolutionMotorType.value !== 'stepper';
+                });
+                document.querySelectorAll('.resolution-servo-field').forEach((element) => {
+                    element.hidden = resolutionMotorType.value !== 'servo';
+                });
+                document.querySelectorAll('.resolution-gear-field').forEach((element) => {
+                    element.hidden = driveType !== 'geared';
+                });
+                document.querySelectorAll('.resolution-pulley-field').forEach((element) => {
+                    element.hidden = driveType !== 'belt';
+                });
+            }
+
+            function drawAngleToleranceChart() {
+                const radius = angleRadius.valueAsNumber;
+                const maxDegrees = angleMaxDegrees.valueAsNumber;
+                const durationSeconds = angleDurationSeconds.valueAsNumber;
+                if (!Number.isFinite(radius) || radius <= 0 || !Number.isFinite(maxDegrees) || maxDegrees <= 0) {
+                    clearGraph(angleChart);
+                    clearGraph(angleTimeChart);
+                    angleStatus.textContent = 'Enter a radius and maximum angle greater than zero.';
+                    angleTimeStatus.textContent = '';
+                    return;
+                }
+                if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+                    clearGraph(angleTimeChart);
+                    const unit = angleUnitSystem.value === 'inch' ? 'in' : 'mm';
+                    const finalMovement = radius * (maxDegrees * Math.PI / 180);
+                    const points = Array.from({length: 41}, (_, index) => {
+                        const degrees = (maxDegrees * index) / 40;
+                        return {x: degrees, y: radius * (degrees * Math.PI / 180)};
+                    });
+                    drawSweepGraph(
+                        angleChart,
+                        points,
+                        'Angle error (degrees)',
+                        `Linear movement (${unit})`,
+                    );
+                    angleStatus.textContent = `With a ${formatEngineeringValue(maxDegrees)}° angle difference, the point shifts ${formatEngineeringValue(finalMovement)} ${unit}.`;
+                    angleTimeStatus.textContent = 'Enter a positive time in seconds.';
+                    return;
+                }
+                const unit = angleUnitSystem.value === 'inch' ? 'in' : 'mm';
+                const finalMovement = radius * (maxDegrees * Math.PI / 180);
+                const averageLinearSpeed = finalMovement / durationSeconds;
+                const points = Array.from({length: 41}, (_, index) => {
+                    const degrees = (maxDegrees * index) / 40;
+                    return {x: degrees, y: radius * (degrees * Math.PI / 180)};
+                });
+                drawSweepGraph(
+                    angleChart,
+                    points,
+                    'Angle error (degrees)',
+                    `Linear movement (${unit})`,
+                );
+                angleStatus.textContent = `With a ${formatEngineeringValue(maxDegrees)}° angle difference, the point shifts ${formatEngineeringValue(finalMovement)} ${unit}. Average speed over ${formatEngineeringValue(durationSeconds)} seconds: ${formatEngineeringValue(averageLinearSpeed)} ${unit}/s.`;
+
+                const timePoints = Array.from({length: 41}, (_, index) => {
+                    const timeSeconds = (durationSeconds * index) / 40;
+                    return {
+                        x: timeSeconds,
+                        y: finalMovement * (timeSeconds / durationSeconds),
+                    };
+                });
+                drawSweepGraph(
+                    angleTimeChart,
+                    timePoints,
+                    'Time (seconds)',
+                    `Linear movement (${unit})`,
+                );
+                angleTimeStatus.textContent = `Estimated average speed: ${formatEngineeringValue(averageLinearSpeed)} ${unit} per second.`;
+            }
+
+            function drawAxisResolutionChart() {
+                const minimum = resolutionRangeMin.valueAsNumber;
+                const maximum = resolutionRangeMax.valueAsNumber;
+                if (!Number.isFinite(minimum) || !Number.isFinite(maximum) || minimum <= 0 || maximum <= minimum) {
+                    clearGraph(resolutionChart);
+                    resolutionStatus.textContent = 'Enter a positive minimum and a larger maximum for lead or belt pitch.';
+                    return;
+                }
+
+                const motorType = resolutionMotorType.value;
+                const driveType = resolutionDriveType.value;
+                const motorSteps = resolutionMotorSteps.valueAsNumber;
+                const microsteps = resolutionMicrosteps.valueAsNumber;
+                const encoderPpr = resolutionEncoderPpr.valueAsNumber;
+                const gearRatio = resolutionGearRatio.valueAsNumber;
+                const pulleyTeeth = resolutionPulleyTeeth.valueAsNumber;
+                let pulsesPerMotorTurn;
+                if (motorType === 'stepper') {
+                    if (!Number.isInteger(motorSteps) || motorSteps <= 0 || !Number.isInteger(microsteps) || microsteps <= 0) {
+                        clearGraph(resolutionChart);
+                        resolutionStatus.textContent = 'Enter positive whole numbers for motor steps and microsteps.';
+                        return;
+                    }
+                    pulsesPerMotorTurn = motorSteps * microsteps;
+                } else {
+                    if (!Number.isFinite(encoderPpr) || encoderPpr <= 0) {
+                        clearGraph(resolutionChart);
+                        resolutionStatus.textContent = 'Enter a positive encoder pulse count (PPR).';
+                        return;
+                    }
+                    pulsesPerMotorTurn = encoderPpr * 4;
+                }
+                if (
+                    (driveType === 'geared' && (!Number.isFinite(gearRatio) || gearRatio <= 0)) ||
+                    (driveType === 'belt' && (!Number.isInteger(pulleyTeeth) || pulleyTeeth <= 0))
+                ) {
+                    clearGraph(resolutionChart);
+                    resolutionStatus.textContent = driveType === 'belt'
+                        ? 'Enter a positive whole number for pulley teeth.'
+                        : 'Enter a motor-to-screw ratio greater than zero.';
+                    return;
+                }
+
+                const ratio = driveType === 'geared' ? gearRatio : 1;
+                const isInches = resolutionUnitSystem.value === 'inch';
+                const distanceUnit = isInches ? 'in' : 'mm';
+                const outputUnit = motorType === 'stepper'
+                    ? `steps/${distanceUnit}`
+                    : `counts/${distanceUnit}`;
+                const points = Array.from({length: 41}, (_, index) => {
+                    const travelPerTurn = minimum + ((maximum - minimum) * index) / 40;
+                    const pulsesPerDistance = driveType === 'belt'
+                        ? pulsesPerMotorTurn / (travelPerTurn * pulleyTeeth)
+                        : (pulsesPerMotorTurn * ratio) / travelPerTurn;
+                    return {x: travelPerTurn, y: pulsesPerDistance};
+                });
+                drawSweepGraph(
+                    resolutionChart,
+                    points,
+                    driveType === 'belt'
+                        ? `Belt pitch (${distanceUnit} per tooth)`
+                        : `Screw lead (${distanceUnit} per turn)`,
+                    `Axis resolution (${outputUnit})`,
+                );
+                const minimumResolution = points[0].y;
+                const maximumResolution = points.at(-1).y;
+                const driveDescription = motorType === 'stepper'
+                    ? `${motorSteps} motor steps × ${microsteps} microsteps`
+                    : `${encoderPpr} encoder PPR × 4 quadrature counts`;
+                const transmissionDescription = driveType === 'geared'
+                    ? ` and a ${formatEngineeringValue(gearRatio)}:1 motor-to-screw ratio`
+                    : driveType === 'belt'
+                        ? ` and a ${pulleyTeeth}-tooth pulley`
+                        : ' with direct drive';
+                const rangeDescription = driveType === 'belt' ? 'belt pitch' : 'screw lead';
+                resolutionStatus.textContent = `Using ${driveDescription}${transmissionDescription}. At ${formatEngineeringValue(minimum)} ${distanceUnit} ${rangeDescription}: ${formatEngineeringValue(minimumResolution)} ${outputUnit}; at ${formatEngineeringValue(maximum)} ${distanceUnit}: ${formatEngineeringValue(maximumResolution)} ${outputUnit}.`;
+            }
+
+            refresh();
+        }
 
         function createFormulaBlock(savedData = null) {
             if (availableFormulas.length === 0) {
@@ -665,6 +1460,9 @@
                     ? savedData.outputVariable.replace(/[^a-zA-Z0-9_]/g, '')
                     : `Result_${blockCounter}`,
                 note: typeof savedData?.note === 'string' ? savedData.note : '',
+                displayUnit: typeof savedData?.displayUnit === 'string'
+                    ? savedData.displayUnit
+                    : '',
                 outputValue: 0,
                 error: null,
                 graphEnabled: Boolean(savedData?.graphEnabled ?? savedData?.showGraph),
@@ -717,25 +1515,35 @@
             number.textContent = `#${blockCounter}`;
             const formulaSelect = document.createElement('select');
             formulaSelect.className = 'formula-select bg-gray-950 border border-gray-800 rounded-lg text-sm px-3 py-1.5 focus:outline-none focus:border-blue-500 font-semibold cursor-pointer text-gray-200';
+            formulaSelect.setAttribute('aria-label', 'Choose a calculation');
+            const formulaLabel = document.createElement('label');
+            formulaLabel.className = 'text-xs font-medium text-gray-400';
+            formulaLabel.textContent = 'Calculate:';
+            formulaLabel.htmlFor = `${blockId}-formula`;
+            formulaSelect.id = `${blockId}-formula`;
             availableFormulas.forEach((formula) => {
                 const option = document.createElement('option');
                 option.value = formula;
-                option.textContent = formula;
+                option.textContent = formulaDisplayNames[formula] ?? humanizeName(formula);
                 option.selected = formula === selectedFormula;
                 formulaSelect.appendChild(option);
             });
-            controls.append(number, formulaSelect);
-
+            controls.append(number, formulaLabel, formulaSelect);
+            const formulaHelp = document.createElement('p');
+            formulaHelp.className = 'formula-help mt-2 basis-full text-xs leading-5 text-gray-400';
+            formulaHelp.textContent = formulaDescriptions[selectedFormula]
+                ?? `Calculates ${formulaDisplayNames[selectedFormula] ?? humanizeName(selectedFormula)} from the values below.`;
             const outputControls = document.createElement('div');
             outputControls.className = 'flex items-center gap-2';
             const variableLabel = document.createElement('label');
             variableLabel.className = 'text-xs text-gray-400 flex items-center bg-gray-950 border border-gray-800 rounded-lg px-2';
-            variableLabel.textContent = 'var:';
+            variableLabel.textContent = 'Result name:';
             const variableInput = document.createElement('input');
             variableInput.type = 'text';
-            variableInput.className = 'output-var-input bg-transparent border-none outline-none py-1 font-mono text-blue-400 w-24 font-bold';
+            variableInput.className = 'output-var-input bg-transparent border-none outline-none py-1 font-mono text-blue-400 w-28 font-bold';
             variableInput.value = blockState.outputVariable;
-            variableInput.setAttribute('aria-label', 'Output variable name');
+            variableInput.setAttribute('aria-label', 'Optional result name');
+            variableInput.title = 'Optional: name this result so it is easier to recognize in the variable list and Pipe menus.';
             variableLabel.appendChild(variableInput);
             const graphLabel = document.createElement('label');
             graphLabel.className = 'inline-flex items-center gap-2 cursor-pointer text-xs text-gray-400 select-none';
@@ -743,7 +1551,7 @@
             graphToggle.type = 'checkbox';
             graphToggle.className = 'graph-toggle-checkbox accent-emerald-500 rounded bg-gray-950';
             graphToggle.checked = blockState.graphEnabled;
-            graphLabel.append(graphToggle, document.createTextNode('📊 Graph Sweep'));
+            graphLabel.append(graphToggle, document.createTextNode('📊 Graph (advanced)'));
             const note = document.createElement('p');
             note.className = 'block-note mt-3 rounded-md border border-blue-900/60 bg-blue-950/20 px-3 py-2 text-xs leading-5 text-blue-200';
             note.textContent = blockState.note;
@@ -908,7 +1716,7 @@
                 dynamicsGraphs,
             );
             const outputRow = document.createElement('div');
-            outputRow.className = 'mt-4 pt-3 border-t border-gray-800/40 flex items-center justify-between bg-gray-950/40 -mx-5 -mb-5 p-5 rounded-b-xl';
+            outputRow.className = 'mt-4 pt-3 border-t border-gray-800/40 flex flex-wrap items-center justify-between gap-3 bg-gray-950/40 -mx-5 -mb-5 p-5 rounded-b-xl';
             const outputCaption = document.createElement('span');
             outputCaption.className = 'text-xs text-gray-400 font-medium';
             outputCaption.textContent = 'Computed Result:';
@@ -916,12 +1724,27 @@
             outputDisplay.className = 'output-display font-mono text-xl font-bold text-emerald-400';
             outputDisplay.textContent = '0.00';
             outputDisplay.setAttribute('aria-live', 'polite');
-            outputRow.append(outputCaption, outputDisplay);
-            blockNode.append(header, note, inputGrid, graphWrapper, outputRow);
+            const resultUnitSelect = document.createElement('select');
+            resultUnitSelect.className = 'result-unit-select bg-gray-900 border border-gray-800 rounded-lg px-2 py-1 text-xs text-gray-200';
+            resultUnitSelect.setAttribute('aria-label', 'Computed result unit');
+            const resultArea = document.createElement('div');
+            resultArea.className = 'flex flex-wrap items-center justify-end gap-2';
+            const resultUnitLabel = document.createElement('label');
+            resultUnitLabel.className = 'result-unit-label text-xs text-gray-400';
+            resultUnitLabel.textContent = 'Display unit:';
+            resultUnitLabel.htmlFor = `${blockId}-result-unit`;
+            resultUnitSelect.id = `${blockId}-result-unit`;
+            resultArea.append(outputDisplay, resultUnitLabel, resultUnitSelect);
+            populateResultUnitSelector(selectedFormula, resultUnitSelect, blockState);
+            outputRow.append(outputCaption, resultArea);
+            blockNode.append(header, formulaHelp, note, inputGrid, graphWrapper, outputRow);
             canvas.appendChild(blockNode);
 
             formulaSelect.addEventListener('change', () => {
                 blockState.selectedFormula = formulaSelect.value;
+                formulaHelp.textContent = formulaDescriptions[blockState.selectedFormula]
+                    ?? `Calculates ${formulaDisplayNames[blockState.selectedFormula] ?? humanizeName(blockState.selectedFormula)} from the values below.`;
+                populateResultUnitSelector(blockState.selectedFormula, resultUnitSelect, blockState);
                 const graphProfile = graphProfiles[blockState.selectedFormula];
                 if (graphProfile) {
                     blockState.graphInput = graphProfile.input;
@@ -939,6 +1762,10 @@
                     graphMax.value = blockState.graphMax;
                     graphSamples.value = blockState.graphSamples;
                 }
+                evaluatePipeline();
+            });
+            resultUnitSelect.addEventListener('change', () => {
+                blockState.displayUnit = resultUnitSelect.value;
                 evaluatePipeline();
             });
             variableInput.addEventListener('input', () => {
@@ -1021,7 +1848,12 @@
                 if (!block.outputVariable) continue;
                 const option = document.createElement('option');
                 option.value = block.outputVariable;
-                option.textContent = `${block.outputVariable} (${formatEngineeringValue(block.outputValue)})`;
+                option.textContent = `${block.outputVariable} (${formatFormulaResult(
+                    block.selectedFormula,
+                    block.outputValue,
+                    block.displayUnit,
+                )})`;
+                option.title = 'This displayed unit is for reference; the calculation uses the original value.';
                 selectElement.appendChild(option);
             }
             if ([...selectElement.options].some((option) => option.value === previousValue)) {
@@ -1075,9 +1907,9 @@
                     `${blockState.selectedFormula}.${name}`,
                 )
                     ? blockState.selectedFormula === 'estimateDcSupplyCurrent'
-                        ? `${name} (optional; otherwise use voltage/current)`
-                        : `${name} (optional; choose one)`
-                    : name;
+                        ? `${humanizeName(name)} (optional; or enter voltage and current)`
+                        : `${humanizeName(name)} (optional; choose one)`
+                    : humanizeName(name);
                 label.textContent = labelText;
                 label.dataset.arg = name;
                 const description = formulaInputDescriptions[blockState.selectedFormula]?.[name];
@@ -1126,7 +1958,7 @@
                     )
                         ? ''
                         : defaultValue;
-                literalInput.setAttribute('aria-label', name);
+                literalInput.setAttribute('aria-label', labelText);
                 const pipeSelect = document.createElement('select');
                 pipeSelect.className = 'pipe-input min-w-0 flex-1 bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200';
                 pipeSelect.classList.toggle('hidden', inputState.type !== 'pipe');
@@ -1137,6 +1969,12 @@
                 if (inputState.type === 'pipe') pipeSelect.value = inputState.value;
                 controls.append(sourceSelect, literalInput, pipeSelect);
                 wrapper.append(label, controls);
+                if (description) {
+                    const helpText = document.createElement('p');
+                    helpText.className = 'text-[11px] leading-4 text-gray-500';
+                    helpText.textContent = description;
+                    wrapper.appendChild(helpText);
+                }
                 container.appendChild(wrapper);
 
                 sourceSelect.addEventListener('change', () => {
@@ -1254,7 +2092,11 @@
                     }
                     block.outputValue = scalarResult;
                     block.error = null;
-                    display.textContent = formatEngineeringValue(scalarResult);
+                    display.textContent = formatFormulaResult(
+                        block.selectedFormula,
+                        scalarResult,
+                        block.displayUnit,
+                    );
                     display.title = '';
                     display.classList.remove('text-red-400');
                     display.classList.add('text-emerald-400');
@@ -1923,6 +2765,85 @@
             });
         }
 
+        function humanizeName(name) {
+            const acronyms = {
+                Ac: 'AC',
+                Dc: 'DC',
+                Awg: 'AWG',
+                Hp: 'HP',
+                Hz: 'Hz',
+                Lc: 'LC',
+                Mm: 'mm',
+                Nm: 'N·m',
+                N: 'N',
+                Ppr: 'PPR',
+                Psu: 'PSU',
+                Rpm: 'RPM',
+                Rlc: 'RLC',
+                Rms: 'RMS',
+                Usb: 'USB',
+                V: 'V',
+            };
+            return name
+                .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+                .split(/[_\s]+/)
+                .map((word) => {
+                    const normalized = `${word[0]?.toUpperCase() ?? ''}${word.slice(1)}`;
+                    return acronyms[normalized] ?? normalized;
+                })
+                .join(' ');
+        }
+
+        function populateResultUnitSelector(formulaName, select, blockState) {
+            const resultUnit = formulaResultUnits[formulaName];
+            const conversion = resultUnit?.dimension
+                ? resultUnitOptions[resultUnit.dimension]
+                : null;
+            select.replaceChildren();
+
+            if (!conversion || conversion.units.length < 2) {
+                select.hidden = true;
+                select.parentElement.querySelector('.result-unit-label').hidden = true;
+                blockState.displayUnit = '';
+                return;
+            }
+
+            conversion.units.forEach(({label}) => {
+                const option = document.createElement('option');
+                option.value = label;
+                option.textContent = label;
+                select.appendChild(option);
+            });
+
+            const selectedUnit = conversion.units.some(({label}) => label === blockState.displayUnit)
+                ? blockState.displayUnit
+                : conversion.default;
+            blockState.displayUnit = selectedUnit;
+            select.value = selectedUnit;
+            select.hidden = false;
+            select.parentElement.querySelector('.result-unit-label').hidden = false;
+        }
+
+        function formatFormulaResult(formulaName, value, displayUnit) {
+            const resultUnit = formulaResultUnits[formulaName];
+            if (!resultUnit) return formatEngineeringValue(value);
+
+            const conversion = resultUnit.dimension
+                ? resultUnitOptions[resultUnit.dimension]
+                : null;
+            if (conversion) {
+                const selectedUnit = conversion.units.find(({label}) => label === displayUnit)
+                    ?? conversion.units.find(({label}) => label === conversion.default);
+                const convertedValue =
+                    (value * (resultUnit.nativeFactor ?? 1)) / selectedUnit.toBase;
+                return `${formatEngineeringValue(convertedValue)} ${selectedUnit.label}`;
+            }
+
+            return resultUnit.unit
+                ? `${formatEngineeringValue(value)} ${resultUnit.unit}`
+                : formatEngineeringValue(value);
+        }
+
         function renderSidebarLedger(scope) {
             varContainer.replaceChildren();
             if (activeBlocks.length === 0) {
@@ -1940,7 +2861,14 @@
                 name.textContent = `🔗 ${variableName}`;
                 const result = document.createElement('span');
                 result.className = 'text-emerald-400 font-bold';
-                result.textContent = formatEngineeringValue(value);
+                const sourceBlock = activeBlocks.find((block) => block.outputVariable === variableName);
+                result.textContent = sourceBlock
+                    ? formatFormulaResult(
+                        sourceBlock.selectedFormula,
+                        value,
+                        sourceBlock.displayUnit,
+                    )
+                    : formatEngineeringValue(value);
                 item.append(name, result);
                 varContainer.appendChild(item);
             });
