@@ -20,8 +20,8 @@ The app's Tailwind stylesheet is built locally and included as `cncHardwareStyle
 - Ordered calculation pipelines: later blocks can use outputs from earlier blocks as inputs.
 - Parameter-sweep graphs, including torque/inertia and acceleration/deceleration current estimates.
 - A final graph gallery for enabled graph blocks.
-- Collapsible, configurable hardware reference charts for angle-related movement and speed, plus stepper/servo axis resolution.
-- A quick-reference unit converter for length (including thou and tenths), motion, mechanical, and electrical units.
+- Collapsible, configurable hardware reference charts for angle-to-linear tolerance (including arcseconds with selectable SI output units) and speed, plus stepper/servo axis resolution.
+- A quick-reference unit converter for length (including thou and tenths), mass, area, volume, temperature, angle, speed, mechanical, pressure, and electrical units; it excludes fuel-economy conversions.
 - JSON import and export for saving a pipeline configuration.
 - An importable [industrial spindle power-distribution profile](./industrial-spindle-power-distribution.json) demonstrating motor/drive efficiency, DC PSU current, DC wire-drop warnings, and an independent three-phase spindle-current estimate.
 - Plain-language input help describing each parameter in the context of its formula.
