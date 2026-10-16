@@ -18,6 +18,7 @@ The app's Tailwind stylesheet is built locally and included as `cncHardwareStyle
 
 - Formula blocks for direct-drive and belt-driven screw steps/mm and servo counts/mm, pure-belt steps/mm, motion limits, straightness error (including comparison scaled to 500 mm), inertia, torque, power, DC/AC current and power (including single- and three-phase power factor with ratio/percentage display, grouped-load DC supply sizing, shaft-to-electrical power conversion, and configurable DC wire-drop diagnostics), RLC behavior, and unit conversions.
 - Ordered calculation pipelines: later blocks can use outputs from earlier blocks as inputs.
+- Automatically groups blocks connected by piped results and marks upstream blocks that feed multiple calculations as shared foundations.
 - Parameter-sweep graphs with explanations for the selected input, range, and point count, including torque/inertia and acceleration/deceleration current estimates. Related enabled formula graphs are automatically combined in a master chart when they use the same input, range, and number of points.
 - A spreadsheet-style straightness plot showing measured readings and the straight line between the first and last readings along the measured length.
 - A final graph gallery for enabled graph blocks.

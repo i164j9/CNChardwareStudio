@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="A practical guide to CNC Hardware Studio formula blocks, inputs, pipelines, and file import/export.">
-    <title>CNC Hardware Studio Tutorial</title>
+    <meta name="description" content="A complete beginner-friendly guide to CNC Hardware Studio calculations, units, pipelines, charts, and saved projects.">
+    <title>CNC Hardware Studio User Guide</title>
     <link rel="stylesheet" href="./cncHardwareStyles.css">
 </head>
 
@@ -14,7 +14,7 @@
         <div class="mx-auto flex max-w-4xl items-center justify-between gap-4">
             <div>
                 <p class="text-sm font-semibold uppercase tracking-widest text-blue-400">CNC Hardware Studio</p>
-                <h1 class="mt-1 text-2xl font-bold">Quick-start tutorial</h1>
+                <h1 class="mt-1 text-2xl font-bold">Complete user guide</h1>
             </div>
             <a href="./index.html"
                 class="rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm font-medium hover:bg-gray-700">
@@ -29,7 +29,45 @@
             <p class="mt-2 leading-7 text-gray-300">
                 The Studio runs engineering formulas in blocks. A block takes numeric inputs and displays a result.
                 You can connect a later block to an earlier result with a pipe, making a simple calculation pipeline.
-                The math library uses metric units unless a formula name or input below says otherwise.
+                You can also graph how a result changes as an input changes, compare compatible graphs in a master
+                chart, use reference charts, and convert common units. The math library is metric-first unless the
+                selected formula or an input label says otherwise.
+            </p>
+        </section>
+
+        <nav aria-label="Guide contents" class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+            <h2 class="text-lg font-semibold">In this guide</h2>
+            <div class="mt-3 grid gap-x-6 gap-y-2 text-sm text-blue-300 sm:grid-cols-2">
+                <a class="hover:text-blue-200" href="#workflow">Recommended workflow</a>
+                <a class="hover:text-blue-200" href="#block-controls">Understand a formula block</a>
+                <a class="hover:text-blue-200" href="#choose-calculation">Choose a calculation</a>
+                <a class="hover:text-blue-200" href="#units-and-inputs">Units and reliable inputs</a>
+                <a class="hover:text-blue-200" href="#pipeline">Build a calculation pipeline</a>
+                <a class="hover:text-blue-200" href="#graphs">Graphs and master charts</a>
+                <a class="hover:text-blue-200" href="#reference-charts">Hardware reference charts</a>
+                <a class="hover:text-blue-200" href="#converter">Quick unit converter</a>
+                <a class="hover:text-blue-200" href="#formula-reference">Formula families</a>
+                <a class="hover:text-blue-200" href="#troubleshooting">Troubleshooting</a>
+                <a class="hover:text-blue-200" href="#save-load">Save, load, and share</a>
+                <a class="hover:text-blue-200" href="#safety">Safety and engineering limits</a>
+            </div>
+        </nav>
+
+        <section id="workflow" class="rounded-xl border border-emerald-900/70 bg-emerald-950/20 p-5">
+            <h2 class="text-xl font-bold text-emerald-200">Recommended workflow: from question to checked result</h2>
+            <ol class="mt-3 list-decimal space-y-2 pl-6 leading-7 text-gray-300">
+                <li><strong class="text-gray-100">Write down the question.</strong> For example: “What is the axis resolution?”, “How much screw torque is needed for this thrust?”, or “How much current does this load draw?”</li>
+                <li><strong class="text-gray-100">Collect the source values first.</strong> Prefer motor, drive, screw, belt, power-supply, and machine documentation over guesses. Record each value with its unit and whether it is a maximum, typical, RMS, peak, input, or output rating.</li>
+                <li><strong class="text-gray-100">Pick the smallest formula that answers the question.</strong> Read its plain-language description and every input hint. If the units or meaning of a value do not match, convert it before entering it.</li>
+                <li><strong class="text-gray-100">Enter and check one result at a time.</strong> The result updates immediately. Confirm that it has a sensible order of magnitude and the expected unit before building a longer chain.</li>
+                <li><strong class="text-gray-100">Connect only values that genuinely depend on each other.</strong> Use Pipe for a calculated result; leave independent inputs as direct values. Keep the producer block above its users.</li>
+                <li><strong class="text-gray-100">Vary uncertain values.</strong> Use a graph sweep to see sensitivity to one input, or compare a few plausible values manually. A curve can reveal whether a small assumption change matters.</li>
+                <li><strong class="text-gray-100">Cross-check important answers.</strong> Compare with a second calculation, manufacturer data, measured behavior, or an independent engineering check. Check all assumptions and units before acting on the result.</li>
+                <li><strong class="text-gray-100">Save a useful setup.</strong> Give results recognizable names, add brief notes where helpful, and download the pipeline JSON so the same assumptions can be reviewed later.</li>
+            </ol>
+            <p class="mt-3 text-sm leading-6 text-emerald-100">
+                A good calculation is traceable: another person should be able to see where each input came from,
+                which unit it uses, what the formula assumes, and how the answer was checked.
             </p>
         </section>
 
@@ -50,6 +88,98 @@
                 <code class="rounded bg-gray-800 px-1.5 py-0.5 text-blue-200">npm run build:css</code>.
                 The generated CSS is already included for normal use.
             </p>
+        </section>
+
+        <section id="block-controls">
+            <h2 class="text-xl font-bold">Understand a formula block</h2>
+            <p class="mt-2 leading-7 text-gray-300">
+                Each card is one calculation. Its top row identifies the block, lets you choose a formula, and
+                provides result, graph, and delete controls. The description below the formula name explains the
+                calculation. Input fields have a label and, where useful, a short help hint. The result is shown at
+                the bottom of the card.
+            </p>
+            <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">Result name</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        This is the name other blocks see in their Pipe menus and the reusable-results list.
+                        Keep names unique and descriptive, such as <code class="text-gray-100">SpindleCurrent</code>
+                        or <code class="text-gray-100">AxisTorque</code>. Use letters, numbers, and underscores.
+                    </p>
+                </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">Display unit</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        Some results offer a unit selector. It changes how the answer is displayed, not its
+                        underlying value or the value sent through a Pipe. Select the scale that is easiest to read.
+                    </p>
+                </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">Graph (advanced)</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        Enable this to show parameter-sweep controls and an individual chart when that formula
+                        supports graphing. It can also make the chart available to the Pipeline Graphs gallery and
+                        compatible master charts.
+                    </p>
+                </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">Delete</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        The × button removes the card. Check later blocks afterward: any inputs that used its output
+                        may need to be connected to another producer or changed back to a direct value.
+                    </p>
+                </article>
+            </div>
+        </section>
+
+        <section id="choose-calculation">
+            <h2 class="text-xl font-bold">Choose a calculation</h2>
+            <p class="mt-2 leading-7 text-gray-300">
+                Add a block and use its <strong class="text-gray-100">Calculate</strong> menu. The menu uses
+                plain-language names rather than requiring you to know the internal formula name. Start with the
+                quantity you need to find, then use the description and input guidance to confirm you have the right
+                formula. Do not select a formula only because its name contains a familiar word: similar quantities
+                can have different definitions or assumptions.
+            </p>
+            <div class="mt-3 overflow-x-auto rounded-xl border border-gray-800 bg-gray-900">
+                <table class="w-full min-w-[36rem] text-left text-sm">
+                    <thead class="text-gray-400">
+                        <tr><th class="p-3">If you need to estimate…</th><th class="p-3">Look in the menu for…</th><th class="p-3">Check especially…</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-800 text-gray-300">
+                        <tr><td class="p-3">Axis steps or encoder counts per distance</td><td class="p-3">Axis steps/counts per mm</td><td class="p-3">Direct screw vs geared screw vs belt; lead, pitch, teeth, and motor/encoder details.</td></tr>
+                        <tr><td class="p-3">Maximum motion speed</td><td class="p-3">Maximum axis speed from controller pulse rate</td><td class="p-3">Pulse frequency and resolution must describe the same axis.</td></tr>
+                        <tr><td class="p-3">Straightness from a set of readings</td><td class="p-3">Straightness error</td><td class="p-3">Measurement length, µm readings, order, and equal spacing.</td></tr>
+                        <tr><td class="p-3">Inertia or torque</td><td class="p-3">Rotational inertia, reflected moving mass, inertia ratio, or torque for thrust</td><td class="p-3">Mass, radius/geometry, screw lead, gearing, efficiency, and which side of the transmission each value describes.</td></tr>
+                        <tr><td class="p-3">DC current, cable drop, or supply demand</td><td class="p-3">DC current, DC supply current, or voltage lost along a DC wire</td><td class="p-3">Do not confuse load current with motor phase current or PSU input current.</td></tr>
+                        <tr><td class="p-3">AC current or power</td><td class="p-3">Single-phase or balanced three-phase</td><td class="p-3">RMS vs peak, line voltage/current, power factor, and whether power is real, apparent, or reactive.</td></tr>
+                        <tr><td class="p-3">Coil/capacitor behavior</td><td class="p-3">RLC, reactance, resonance, or stored energy</td><td class="p-3">Use SI base units: Ω, H, F, Hz, V, and A unless the input explicitly specifies another unit.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="mt-3 text-sm leading-6 text-gray-400">
+                The formula menu is searchable by scanning its descriptive labels. For related formulas and equations,
+                see <a class="text-blue-300 hover:text-blue-200" href="#formula-reference">Formula families</a> and
+                <a class="text-blue-300 hover:text-blue-200" href="#ac-formulas">AC formulas and when to use them</a>.
+            </p>
+        </section>
+
+        <section id="units-and-inputs">
+            <h2 class="text-xl font-bold">Units and reliable inputs</h2>
+            <p class="mt-2 leading-7 text-gray-300">
+                The Studio calculates with the units expected by each selected formula; it does not automatically
+                recognize a unit typed beside a number. The input label and its help hint are the source of truth.
+                For example, <strong class="text-gray-100">1</strong> millimeter, meter, henry, or millihenry are
+                very different values. Convert first, then enter the numeric value in the required unit.
+            </p>
+            <ul class="mt-3 list-disc space-y-2 pl-6 leading-7 text-gray-300">
+                <li>Use metric/SI units as the default: meters, kilograms, newtons, newton-meters, watts, volts, amps, ohms, henries, farads, hertz, and seconds where requested.</li>
+                <li>Pay attention to prefixes: <strong class="text-gray-100">m</strong> is milli (10⁻³), while <strong class="text-gray-100">µ</strong> is micro (10⁻⁶). For example, 5 mH is 0.005 H and 200 µF is 0.0002 F.</li>
+                <li>Confirm whether an electrical nameplate value is RMS or peak. Most AC equipment and meters report RMS; peak-value helpers are explicit.</li>
+                <li>Distinguish a total system value from a per-motor or per-phase value. Check whether a three-phase input expects line-to-line voltage, line current, or total real power.</li>
+                <li>Use positive, physically meaningful values where required. Zero, negative, or impossible values can produce an error or a mathematically valid but useless answer.</li>
+                <li>Use the quick unit converter for reference conversions, but remember that it does not alter block inputs or insert a conversion into the pipeline.</li>
+            </ul>
         </section>
 
         <section>
@@ -121,7 +251,7 @@
             </p>
         </section>
 
-        <section>
+        <section id="graphs">
             <h2 class="text-xl font-bold">Understand parameter-sweep graphs</h2>
             <p class="mt-2 leading-7 text-gray-300">
                 For other calculations, a parameter-sweep graph changes one chosen input from its start value to its
@@ -132,9 +262,16 @@
                 master chart. Different result units use separately labeled vertical axes. Invalid calculations
                 in the selected range are left out and reported below the graph.
             </p>
+            <p class="mt-3 leading-7 text-gray-300">
+                Use a sweep to answer “what changes if this one input changes?” Keep the other inputs fixed at
+                representative values, and choose a range that covers plausible operating conditions rather than
+                arbitrary extremes. The chart is not a time history: points show formula results for input values,
+                not how the machine moves through time. It also does not optimize the result or choose a safe range
+                for you.
+            </p>
         </section>
 
-        <section>
+        <section id="reference-charts">
             <h2 class="text-xl font-bold">Use the hardware reference charts</h2>
             <p class="mt-2 leading-7 text-gray-300">
                 The angle chart answers: “If this arm or shaft turns a little, how far does a point on it move?”
@@ -171,7 +308,7 @@
             </p>
         </section>
 
-        <section>
+        <section id="pipeline">
             <h2 class="text-xl font-bold">Connect blocks with a pipe</h2>
             <p class="mt-2 leading-7 text-gray-300">
                 Add another block after the first. Its Pipe dropdown can select outputs from earlier blocks. For
@@ -184,6 +321,34 @@
                 Blocks run from top to bottom. Only outputs from blocks above the current block are available, so
                 arrange a producer before the block that uses its result.
             </p>
+            <ol class="mt-3 list-decimal space-y-2 pl-6 leading-7 text-gray-300">
+                <li>Add the calculation that produces a value. Give its result a recognizable name.</li>
+                <li>Add the calculation that needs that value below the producer.</li>
+                <li>On the correct input row, change <strong class="text-gray-100">Value</strong> to
+                    <strong class="text-gray-100">Pipe</strong>, then choose the producer’s named result.</li>
+                <li>Leave the other inputs as direct values unless they also come from calculations.</li>
+                <li>Check the result and unit after connecting the pipe. The later block recalculates when the upstream result changes.</li>
+            </ol>
+            <p class="mt-3 leading-7 text-gray-300">
+                When blocks are connected by pipes, the Studio automatically puts them in a
+                <strong class="text-gray-100">Related calculations</strong> group. A block whose result feeds
+                several later calculations is marked <strong class="text-purple-200">Shared foundation</strong>;
+                this makes branching calculation paths easier to follow. The group changes automatically when you
+                change a Pipe source or remove a connection or block. Role labels show whether a block is a
+                foundation, a shared foundation, or a block that uses or feeds another result. These labels describe
+                connections, not engineering importance or correctness.
+            </p>
+            <p class="mt-3 leading-7 text-gray-300">
+                A Pipe passes the producer’s calculated value in its original internal unit. Changing the producer’s
+                display-unit selector does not convert that value for the next formula. Connect only compatible
+                quantities: a number alone does not carry a unit conversion or dimensional check into the next block.
+                If a needed output is not listed, make sure the producer is above the consumer, has a result name,
+                and has not been deleted.
+            </p>
+            <p class="mt-3 rounded-lg border border-blue-900/60 bg-blue-950/20 p-3 text-sm leading-6 text-blue-100">
+                Set a result name before connecting other blocks when possible. If you rename a result that is
+                already used by downstream blocks, reselect the producer in each affected Pipe menu.
+            </p>
             <p class="mt-3 leading-7 text-gray-300">
                 The computed result shows its measurement unit. Where conversions are available, use the unit
                 dropdown beside the result to change the displayed scale; metric units are selected by default.
@@ -192,7 +357,7 @@
             </p>
         </section>
 
-        <section>
+        <section id="converter">
             <h2 class="text-xl font-bold">Use the quick unit converter</h2>
             <p class="mt-2 leading-7 text-gray-300">
                 At the bottom of the Studio, choose a conversion type, enter a value, and select its input unit.
@@ -222,6 +387,13 @@
                 be adjusted. The torque graph shows required motor torque, not the motor’s holding-torque rating.
             </p>
             <p class="mt-3 leading-7 text-gray-300">
+                The sweep controls are <strong class="text-gray-100">Value to vary</strong>, the start and end of the
+                range, and the number of samples. Two samples show only the endpoints; more samples reveal curve
+                shape but take longer to calculate. The graph uses evenly spaced input values between the endpoints.
+                Keep the selected input within the formula’s meaningful range and check any status message about
+                omitted invalid samples.
+            </p>
+            <p class="mt-3 leading-7 text-gray-300">
                 Other common sweep inputs also start with convenient ranges: frequency (10–1,000 Hz), inductance
                 (0.5–10 mH or 0.001–0.1 H, depending on the formula’s units), steps or counts per millimeter
                 (10–2,000), and rotational speed (0–3,000 rpm). These are starting points, not hardware limits;
@@ -244,14 +416,28 @@
                 friction, drive-specific current control, motor thermal limits, and real regenerative-bus behavior.
                 Enabled block graphs are also collected at the end of the pipeline in the Pipeline Graphs section.
             </p>
+            <h3 class="mt-5 text-lg font-semibold text-gray-100">Compare related results in a master chart</h3>
+            <p class="mt-2 leading-7 text-gray-300">
+                When two or more enabled graphs sweep the same input name across the same start and end values with
+                the same number of samples, the Studio automatically overlays their data in a master chart in
+                <strong class="text-gray-100">Pipeline Graphs</strong>. You do not need to drag charts or manually
+                combine them. This is useful for comparing related quantities as a parameter changes. For example,
+                two frequency-dependent formulas can share a frequency sweep.
+            </p>
+            <p class="mt-2 leading-7 text-gray-300">
+                The individual block graphs remain available. If outputs use different units, the master chart gives
+                them separately labeled vertical scales; compare the labels and series names rather than comparing
+                heights alone. If no master chart appears, the sweeps are not compatible (for example, the ranges,
+                input, or sample counts differ), or fewer than two usable graph series are enabled.
+            </p>
             <p class="mt-3 rounded-lg border border-amber-900 bg-amber-950/30 p-4 text-sm leading-6 text-amber-100">
                 A sweep is a mathematical exploration, not a safety certification. Ensure the chosen parameter range
                 is physically appropriate before using results to select or operate hardware.
             </p>
         </section>
 
-        <section>
-            <h2 class="text-xl font-bold">Formula reference</h2>
+        <section id="formula-reference">
+            <h2 class="text-xl font-bold">Formula families</h2>
             <div class="mt-3 grid gap-3 sm:grid-cols-2">
                 <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
                     <h3 class="font-semibold text-blue-300">Motion and mechanics</h3>
@@ -291,7 +477,7 @@
             </p>
         </section>
 
-        <section>
+        <section id="ac-formulas">
             <h2 class="text-xl font-bold">AC formulas and when to use them</h2>
             <p class="mt-2 leading-7 text-gray-300">
                 AC formulas below use RMS voltage and current unless the name says peak. RMS values are the effective
@@ -365,6 +551,26 @@
         </section>
 
         <section>
+            <h2 class="text-xl font-bold">Example workflow: shaft power to estimated DC supply current</h2>
+            <p class="mt-2 leading-7 text-gray-300">
+                This example shows how to build a traceable chain without treating every value as if it came from the
+                same place. Use the actual rated or measured values for your hardware; the values below are not a
+                machine recommendation.
+            </p>
+            <ol class="mt-3 list-decimal space-y-2 pl-6 leading-7 text-gray-300">
+                <li>Add <strong class="text-gray-100">Motor shaft power from torque and RPM</strong> if you know the shaft torque and rotational speed. This estimates mechanical output power in watts.</li>
+                <li>Add <strong class="text-gray-100">Electrical input power from motor shaft power</strong>. Pipe the shaft-power result into its shaft-power input, and replace its illustrative efficiency with a supported motor/drive estimate when available.</li>
+                <li>Add <strong class="text-gray-100">Estimated DC power-supply current for a load</strong>. Pipe electrical input power into load power. Enter the DC supply voltage and PSU efficiency; leave load quantity at one unless the power represents one of several identical groups.</li>
+                <li>Review the result as a rough supply-current estimate. The motor/drive efficiency and the PSU efficiency account for losses at different stages; do not use the same efficiency twice.</li>
+                <li>If cable drop matters, add a separate <strong class="text-gray-100">Voltage lost along a DC wire</strong> block, using the relevant supply voltage, the load current, one-way wire length, and conductor details. Check the configured voltage-drop advisory and independently verify wire ampacity and installation requirements.</li>
+            </ol>
+            <p class="mt-3 text-sm leading-6 text-gray-400">
+                You can branch one upstream result into multiple downstream calculations. The related-calculations
+                group will show that relationship, but each branch still needs the correct units and assumptions.
+            </p>
+        </section>
+
+        <section>
             <h2 class="text-xl font-bold">Review DC cable voltage drop</h2>
             <p class="mt-2 leading-7 text-gray-300">
                 The Studio compares each <code class="text-gray-100">dcWireVoltageDrop</code> result with the
@@ -414,17 +620,76 @@
             </p>
         </section>
 
-        <section>
-            <h2 class="text-xl font-bold">Save and load your pipeline</h2>
+        <section id="troubleshooting">
+            <h2 class="text-xl font-bold">Troubleshooting and common mistakes</h2>
+            <div class="mt-3 space-y-3">
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">The result says “Error”</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        Hover over or focus the error to read its message. Check that required inputs are filled,
+                        numeric, and in the units shown. Look for zero in a denominator, an invalid efficiency, a
+                        negative value where only positive values make sense, or a missing Pipe selection.
+                    </p>
+                </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">A Pipe value is missing or the dependent result errors</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        The producer must be above the consumer. Check that the producer has a usable result name,
+                        then open the dependent input’s Pipe menu and select the current output. If you renamed or
+                        deleted a producer, reconnect its consumers. Confirm that the output quantity and downstream
+                        input have compatible units.
+                    </p>
+                </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">The number looks unexpectedly large or small</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        Check unit prefixes, degrees versus arcseconds, millimeters versus meters, screw lead versus
+                        belt pitch, and whether a value is per phase, per motor, or a total. Confirm that a selected
+                        display unit did not lead you to enter a converted value into a field expecting the original
+                        unit. Use the converter as a check, not as an automatic input conversion.
+                    </p>
+                </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">The expected graph or combined chart is missing</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        Turn on the block’s Graph option, choose a numeric input the formula can sweep, and set a
+                        minimum lower than the maximum with 2–500 samples. Check that the range is valid for the
+                        formula and read any message about omitted samples. A master chart needs at least two
+                        compatible valid series; match the swept input, range, and sample count.
+                    </p>
+                </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">The group or role badge changed</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        Related groups are based on Pipe connections, not on similar formula names. A block can be
+                        mathematically related but remain separate if it does not use another block’s output. Check
+                        the Pipe menus and the group explanation to understand the current dependency path.
+                    </p>
+                </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">A chart or value seems too precise</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        Display digits are not a statement of measurement accuracy. Real hardware has tolerances,
+                        calibration error, temperature effects, losses, compliance, and operating limits that may
+                        not be included in the selected formula. Round conclusions to a precision justified by the
+                        input data and assumptions.
+                    </p>
+                </article>
+            </div>
+        </section>
+
+        <section id="save-load">
+            <h2 class="text-xl font-bold">Save, load, and share your pipeline</h2>
             <ul class="mt-3 list-disc space-y-2 pl-6 leading-7 text-gray-300">
-                <li><strong class="text-gray-100">Save JSON</strong> downloads the current block setup and values.</li>
-                <li><strong class="text-gray-100">Load JSON</strong> rebuilds blocks from a previously saved Studio file.</li>
-                <li>Loading replaces the blocks currently on the canvas.</li>
-                <li>Use the block’s delete button to remove it; downstream pipes that depended on it may need a new source.</li>
+                <li><strong class="text-gray-100">Save JSON</strong> downloads the current formula blocks, values, result names, Pipe connections, display choices, and graph settings.</li>
+                <li><strong class="text-gray-100">Load JSON</strong> opens a previously saved Studio pipeline. Loading replaces the blocks currently on the canvas; save the current setup first if you need to keep it.</li>
+                <li>Keep the JSON file with project notes or revision information so you can identify the machine, source documents, and assumptions it represents.</li>
+                <li>The JSON file is a pipeline configuration, not a report or a verified engineering record. Review its inputs and recalculate/check results when you load it.</li>
+                <li>The configurable global wire-drop threshold and the standalone reference-chart and quick-converter inputs are not part of the saved formula pipeline. Record those separately if they matter to your review.</li>
             </ul>
         </section>
 
-        <section class="rounded-xl border border-amber-900 bg-amber-950/30 p-5">
+        <section id="safety" class="rounded-xl border border-amber-900 bg-amber-950/30 p-5">
             <h2 class="text-lg font-semibold text-amber-200">Safety and engineering note</h2>
             <p class="mt-2 leading-7 text-amber-100">
                 These calculations are estimates, not a substitute for manufacturer specifications, qualified

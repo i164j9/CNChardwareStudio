@@ -2,6 +2,7 @@ import CncHardwareMath from './cncHardwareMath.js';
 
 let blockCounter = 0;
 let activeBlocks = [];
+let calculationGroupSignature = null;
 
 const excludedFormulas = new Set([
     'millimetersToInches',
@@ -1590,8 +1591,11 @@ function createFormulaBlock(savedData = null) {
     const controls = document.createElement('div');
     controls.className = 'flex min-w-0 flex-wrap items-center gap-2 sm:gap-3';
     const number = document.createElement('span');
-    number.className = 'bg-blue-900/40 text-blue-400 font-mono text-xs px-2.5 py-1 rounded border border-blue-800/60 font-bold';
+    number.className = 'block-number bg-blue-900/40 text-blue-400 font-mono text-xs px-2.5 py-1 rounded border border-blue-800/60 font-bold';
     number.textContent = `#${blockCounter}`;
+    const blockRole = document.createElement('span');
+    blockRole.className = 'block-role hidden rounded border border-purple-800/60 bg-purple-950/40 px-2 py-1 text-[11px] font-medium text-purple-200';
+    blockRole.setAttribute('aria-label', 'Calculation role in related block group');
     const formulaSelect = document.createElement('select');
     formulaSelect.className = 'formula-select w-full min-w-0 max-w-full bg-gray-950 border border-gray-800 rounded-lg text-sm px-3 py-1.5 focus:outline-none focus:border-blue-500 font-semibold cursor-pointer text-gray-200 sm:w-auto';
     formulaSelect.setAttribute('aria-label', 'Choose a calculation');
@@ -1607,7 +1611,7 @@ function createFormulaBlock(savedData = null) {
         option.selected = formula === selectedFormula;
         formulaSelect.appendChild(option);
     });
-    controls.append(number, formulaLabel, formulaSelect);
+    controls.append(number, blockRole, formulaLabel, formulaSelect);
     const formulaHelp = document.createElement('p');
     formulaHelp.className = 'formula-help mt-2 basis-full text-xs leading-5 text-gray-400';
     formulaHelp.textContent = formulaDescriptions[selectedFormula]
@@ -2105,6 +2109,7 @@ function renderInputsForBlock(blockNode, blockState) {
             inputState.type = sourceSelect.value;
             literalInput.classList.toggle('hidden', inputState.type !== 'literal');
             pipeSelect.classList.toggle('hidden', inputState.type !== 'pipe');
+            pipeSelect.hidden = Boolean(inputOptions) || isTextInput || inputState.type !== 'pipe';
             if (inputState.type === 'pipe') populatePipeDropdown(pipeSelect, blockState.id);
             inputState.value = inputState.type === 'literal'
                 ? inputOptions
@@ -2268,8 +2273,137 @@ function evaluatePipeline() {
         if (block.graphEnabled) renderBlockGraph(block, blockNode, scope);
     });
     runCrossBlockSafetyChecks(scope);
+    renderCalculationGroups();
     renderSidebarLedger(scope);
     renderPipelineGraphGallery();
+}
+
+function renderCalculationGroups() {
+    const blockNodes = new Map(
+        activeBlocks.map((block) => [block.id, document.getElementById(block.id)]),
+    );
+    const blockIndexes = new Map(
+        activeBlocks.map((block, index) => [block.id, index]),
+    );
+    const adjacency = new Map(activeBlocks.map((block) => [block.id, new Set()]));
+    const downstream = new Map(activeBlocks.map((block) => [block.id, new Set()]));
+    const upstream = new Map(activeBlocks.map((block) => [block.id, new Set()]));
+    const dependencyEdges = [];
+
+    activeBlocks.forEach((block, blockIndex) => {
+        for (const input of Object.values(block.inputs)) {
+            if (input.type !== 'pipe' || !input.value) continue;
+            let sourceBlock = null;
+            for (let index = 0; index < blockIndex; index += 1) {
+                const candidate = activeBlocks[index];
+                if (candidate.outputVariable === input.value) sourceBlock = candidate;
+            }
+            if (!sourceBlock) continue;
+            adjacency.get(block.id).add(sourceBlock.id);
+            adjacency.get(sourceBlock.id).add(block.id);
+            downstream.get(sourceBlock.id).add(block.id);
+            upstream.get(block.id).add(sourceBlock.id);
+            dependencyEdges.push([sourceBlock.id, block.id]);
+        }
+    });
+    const nextSignature = JSON.stringify(dependencyEdges);
+    if (nextSignature === calculationGroupSignature) return;
+    calculationGroupSignature = nextSignature;
+
+    const groups = [];
+    const blockToGroup = new Map();
+    const visited = new Set();
+    activeBlocks.forEach((block) => {
+        if (visited.has(block.id) || adjacency.get(block.id).size === 0) return;
+        const pending = [block.id];
+        const members = [];
+        visited.add(block.id);
+        while (pending.length > 0) {
+            const currentId = pending.pop();
+            members.push(activeBlocks[blockIndexes.get(currentId)]);
+            adjacency.get(currentId).forEach((neighborId) => {
+                if (visited.has(neighborId)) return;
+                visited.add(neighborId);
+                pending.push(neighborId);
+            });
+        }
+        members.sort(
+            (first, second) => blockIndexes.get(first.id) - blockIndexes.get(second.id),
+        );
+        const group = { members };
+        groups.push(group);
+        members.forEach((member) => blockToGroup.set(member.id, group));
+    });
+
+    activeBlocks.forEach((block) => {
+        const blockNode = blockNodes.get(block.id);
+        const badge = blockNode?.querySelector('.block-role');
+        if (!badge) return;
+        const uses = downstream.get(block.id).size;
+        const hasUpstream = upstream.get(block.id).size > 0;
+        if (uses > 1) {
+            badge.textContent = `Shared foundation · feeds ${uses}`;
+            badge.classList.remove('hidden');
+        } else if (uses === 1 && !hasUpstream) {
+            badge.textContent = 'Foundation';
+            badge.classList.remove('hidden');
+        } else if (uses === 1) {
+            badge.textContent = 'Feeds 1 calculation';
+            badge.classList.remove('hidden');
+        } else if (hasUpstream) {
+            badge.textContent = 'Uses a piped result';
+            badge.classList.remove('hidden');
+        } else {
+            badge.textContent = '';
+            badge.classList.add('hidden');
+        }
+    });
+
+    canvas.replaceChildren(placeholder);
+    const renderedGroups = new Set();
+    activeBlocks.forEach((block) => {
+        const group = blockToGroup.get(block.id);
+        if (!group) {
+            const blockNode = blockNodes.get(block.id);
+            if (blockNode) canvas.appendChild(blockNode);
+            return;
+        }
+        if (renderedGroups.has(group)) return;
+        renderedGroups.add(group);
+
+        const section = document.createElement('section');
+        section.className = 'related-calculation-group space-y-4 rounded-xl border border-purple-900/60 bg-purple-950/10 p-3 sm:p-4';
+        section.setAttribute('aria-label', 'Related calculation blocks');
+        const heading = document.createElement('h3');
+        heading.className = 'text-sm font-semibold text-purple-200';
+        heading.textContent = 'Related calculations';
+        const foundations = group.members.filter(
+            (member) => upstream.get(member.id).size === 0,
+        );
+        const explanation = document.createElement('p');
+        explanation.className = 'text-xs leading-5 text-gray-400';
+        explanation.textContent = foundations.length > 0
+            ? `These blocks are connected through piped results. ${foundations.map((foundation) => {
+                const consumers = [...downstream.get(foundation.id)]
+                    .map((id) => blockNodes.get(id)?.querySelector('.block-number')?.textContent
+                        ?? `#${blockIndexes.get(id) + 1}`)
+                    .join(', ');
+                const role = downstream.get(foundation.id).size > 1
+                    ? ' is a shared foundation for '
+                    : ' supplies ';
+                const foundationNumber =
+                    blockNodes.get(foundation.id)?.querySelector('.block-number')?.textContent
+                    ?? `#${blockIndexes.get(foundation.id) + 1}`;
+                return `Block ${foundationNumber}${role}${consumers}.`;
+            }).join(' ')}`
+            : 'These blocks are connected through piped results from an earlier calculation.';
+        section.append(heading, explanation);
+        canvas.appendChild(section);
+        group.members.forEach((member) => {
+            const node = blockNodes.get(member.id);
+            if (node) section.appendChild(node);
+        });
+    });
 }
 
 function renderBlockGraph(block, blockNode, scope) {
@@ -3510,6 +3644,7 @@ function importTimelineConfiguration(event) {
             canvas.replaceChildren();
             activeBlocks = [];
             blockCounter = 0;
+            calculationGroupSignature = null;
             parsedConfig.forEach((blockData) => createFormulaBlock(blockData));
             placeholder.classList.toggle('hidden', activeBlocks.length > 0);
         } catch (error) {
