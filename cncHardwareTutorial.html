@@ -46,6 +46,7 @@
                 <a class="hover:text-blue-200" href="#graphs">Graphs and master charts</a>
                 <a class="hover:text-blue-200" href="#reference-charts">Hardware reference charts</a>
                 <a class="hover:text-blue-200" href="#converter">Quick unit converter</a>
+                <a class="hover:text-blue-200" href="#backlash">Backlash measurement and compensation</a>
                 <a class="hover:text-blue-200" href="#formula-reference">Formula families</a>
                 <a class="hover:text-blue-200" href="#troubleshooting">Troubleshooting</a>
                 <a class="hover:text-blue-200" href="#save-load">Save, load, and share</a>
@@ -251,6 +252,72 @@
             </p>
         </section>
 
+        <section id="backlash">
+            <h2 class="text-xl font-bold">Measure backlash and calculate compensation</h2>
+            <p class="mt-2 leading-7 text-gray-300">
+                The backlash calculator turns repeated indicator measurements for one axis into an average distance
+                and a whole-number compensation-pulse setting. It follows the supplied two-axis procedure: take
+                measurements at three table locations, at rapid and machining speeds, with three tests for each
+                location and speed. This gives <strong class="text-gray-100">18 readings per axis</strong>. Make
+                one calculator block for X and another for Y if you want to calculate both.
+            </p>
+            <h3 class="mt-4 text-lg font-semibold">Prepare and measure carefully</h3>
+            <ol class="mt-2 list-decimal space-y-2 pl-6 leading-7 text-gray-300">
+                <li>Use a suitable test indicator and fixture, and follow your machine builder’s approved procedure. The supplied procedure describes a 0.0001 in indicator, a test square, about 0.003 in of indicator pre-tension, and setting the indicator to zero while approaching from a consistent direction.</li>
+                <li>Before disabling or changing any existing backlash compensation, record the current control values and confirm that the machine procedure and an authorized operator permit the change. The supplied procedure says to set compensation to zero during measurement so the existing correction does not mask the measured error.</li>
+                <li>Run the prescribed movement sequence at rapid speed and at machining speed. Do not reverse direction while picking up the initial zero. Use the same setup approach and indicator geometry throughout the measurements.</li>
+                <li>Repeat three tests at each of the three locations for the axis. For X, use left, right, and middle. For Y, use front, middle, and back. Record the measured backlash amount for each test, not the commanded travel.</li>
+                <li>Use absolute, non-negative backlash magnitudes. Keep all 18 readings for an axis in the same unit. Do not mix indicator readings from different axes or from different unit scales.</li>
+            </ol>
+            <p class="mt-3 text-sm leading-6 text-gray-400">
+                The supplied diagrams show X and Y checks. For another axis, including Z, use the machine builder’s
+                approved locations and setup; do not assume the X/Y locations apply unchanged.
+            </p>
+            <h3 class="mt-4 text-lg font-semibold">Enter readings in the calculator</h3>
+            <ol class="mt-2 list-decimal space-y-2 pl-6 leading-7 text-gray-300">
+                <li>Add a formula block and choose <strong class="text-gray-100">Backlash compensation pulses from repeated measurements</strong>.</li>
+                <li>Enter exactly 18 measurements separated by commas or new lines. Follow the table order: for the first location, enter rapid tests 1–3, then machining-speed tests 1–3; repeat those six readings for the second and third locations.</li>
+                <li>Choose the unit used by the readings: inches, thousandths of an inch, millimeters, or micrometers. The supplied procedure’s indicator readings are in inches; for example, a dial reading of 0.0002 in should be entered as <code class="text-gray-100">0.0002</code> when Inches is selected.</li>
+                <li>Leave <strong class="text-gray-100">Machine compensation pulses per micrometer</strong> at 4 when following the supplied procedure. Change it only when the control or machine manufacturer specifies a different conversion.</li>
+                <li>The displayed result is the average measurement converted to the nearest whole compensation pulse. Enter that value only in the backlash parameter for the measured axis and applicable control family.</li>
+            </ol>
+            <div class="mt-3 overflow-x-auto rounded-xl border border-gray-800 bg-gray-900">
+                <table class="w-full text-left text-sm">
+                    <thead class="text-gray-400">
+                        <tr><th class="p-3">Example readings (in)</th><th class="p-3">Average</th><th class="p-3">Calculated value</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-800 text-gray-200">
+                        <tr><td class="p-3">18 readings, each 0.0002</td><td class="p-3">0.0002 in</td><td class="p-3">20 pulses</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="mt-3 text-sm leading-6 text-gray-400">
+                The example follows the procedure’s rounded factors: 0.0002 in × 2.5 µm per 0.0001 in = 5 µm;
+                5 µm × 4 pulses per µm = 20 pulses. For other readings, the calculator rounds the final pulse
+                count to the nearest whole number.
+            </p>
+            <h3 class="mt-4 text-lg font-semibold">Parameter locations listed in the procedure</h3>
+            <div class="mt-2 overflow-x-auto rounded-xl border border-gray-800 bg-gray-900">
+                <table class="w-full text-left text-sm">
+                    <thead class="text-gray-400">
+                        <tr><th class="p-3">Control family</th><th class="p-3">X axis</th><th class="p-3">Y axis</th><th class="p-3">Z axis</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-800 text-gray-200">
+                        <tr><td class="p-3">MGC / MGE</td><td class="p-3">1150</td><td class="p-3">2150</td><td class="p-3">3150</td></tr>
+                        <tr><td class="p-3">MGF / MGH</td><td class="p-3">1965</td><td class="p-3">2965</td><td class="p-3">3965</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="mt-3 rounded-lg border border-amber-900 bg-amber-950/30 p-4 text-sm leading-6 text-amber-100">
+                These parameter numbers are transcribed from the supplied procedure and may not apply to another
+                control, software version, or machine. Verify the correct parameter, units, allowed range, and
+                sign convention in the control manufacturer’s documentation before changing settings. The procedure
+                flags a measured backlash of 0.0005 in or greater as a possible ball-screw problem; treat that as a
+                maintenance warning, not a universal acceptance limit. After authorized compensation changes, rerun
+                the checks and verify position accuracy before returning the machine to service.
+            </p>
+        </section>
+
         <section id="graphs">
             <h2 class="text-xl font-bold">Understand parameter-sweep graphs</h2>
             <p class="mt-2 leading-7 text-gray-300">
@@ -442,8 +509,9 @@
                 <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
                     <h3 class="font-semibold text-blue-300">Motion and mechanics</h3>
                     <p class="mt-2 text-sm leading-6 text-gray-300">
-                        Stepper/servo resolution, mechanical resolution, maximum feed rate, cylinder and reflected
-                        inertia, inertia ratio, torque for thrust, torque-to-watts, and calibration.
+                        Stepper/servo resolution, mechanical resolution, maximum feed rate, backlash compensation,
+                        straightness, cylinder and reflected inertia, inertia ratio, torque for thrust, torque-to-watts,
+                        and calibration.
                     </p>
                 </article>
                 <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">

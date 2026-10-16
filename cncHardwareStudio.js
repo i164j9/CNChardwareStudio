@@ -65,6 +65,10 @@ const formulaParameterRegistry = {
             'material',
         ],
     },
+    backlashCompensationPulses: {
+        type: 'backlash_measurements',
+        inputs: ['measurements', 'measurementUnit', 'pulsesPerMicron'],
+    },
     electricalPowerFromShaft: {
         type: 'positional',
         inputs: ['shaftPowerWatts', 'motorDriveEfficiency'],
@@ -73,6 +77,7 @@ const formulaParameterRegistry = {
 const formulaTextParameters = new Set([
     'straightnessErrorUm.readingsUm',
     'straightnessErrorPer500Mm.readingsUm',
+    'backlashCompensationPulses.measurements',
 ]);
 const straightnessFormulas = new Set([
     'straightnessErrorUm',
@@ -330,6 +335,7 @@ const formulaResultUnits = {
     stepsPerMmToStepsPerInch: { dimension: 'resolution', nativeFactor: 1 / 0.0254 },
     stepsPerInchToStepsPerMm: { dimension: 'resolution', nativeFactor: 1000 },
     calibrateSteps: { unit: 'steps or counts' },
+    backlashCompensationPulses: { unit: 'pulses' },
 };
 const formulaDisplayNames = {
     straightnessErrorUm: 'Straightness error over the measured length',
@@ -382,6 +388,7 @@ const formulaDisplayNames = {
     requiredTorqueForThrust: 'Screw torque needed to produce a linear push or pull',
     torqueAndRpmToWatts: 'Motor shaft power from torque and RPM',
     calibrateSteps: 'Correct the controller steps/mm from a measured move',
+    backlashCompensationPulses: 'Backlash compensation pulses from repeated measurements',
 };
 const formulaDescriptions = {
     straightnessErrorUm: 'Calculates straightness error from measurements taken at evenly spaced points. It compares each reading with a straight reference line joining the first and last readings, then reports the total deviation range over the measured length.',
@@ -434,11 +441,18 @@ const formulaDescriptions = {
     requiredTorqueForThrust: 'Estimates the motor torque needed at the screw to create a chosen linear push or pull, allowing for screw lead and drive efficiency.',
     torqueAndRpmToWatts: 'Calculates mechanical shaft power from rotational torque and speed.',
     calibrateSteps: 'Corrects the controller’s steps-or-counts-per-distance setting using a commanded move and the distance the machine actually moved. Measure both distances in the same unit.',
+    backlashCompensationPulses: 'Averages backlash measurements for one axis, converts the average to micrometers, and calculates the nearest whole-number compensation pulses. Inch measurements use the supplied procedure’s rounded conversion of 2.5 µm per 0.0001 in; its example of 0.0002 in gives 20 pulses at 4 pulses per micrometer.',
 };
 const formulaInputOptions = {
     'dcWireVoltageDrop.material': [
         { value: 'copper', label: 'Copper' },
         { value: 'aluminum', label: 'Aluminum' },
+    ],
+    'backlashCompensationPulses.measurementUnit': [
+        { value: 'inch', label: 'Inches (in)' },
+        { value: 'thou', label: 'Thousandths of an inch (0.001 in)' },
+        { value: 'mm', label: 'Millimeters (mm)' },
+        { value: 'micron', label: 'Micrometers (µm)' },
     ],
 };
 const optionalFormulaParameters = new Set([
@@ -464,10 +478,16 @@ const formulaParameterDefaults = {
     'dcWireVoltageDrop.conductorAreaMm2': 2.5,
     'dcWireVoltageDrop.material': 'copper',
     'electricalPowerFromShaft.motorDriveEfficiency': 0.8,
+    'backlashCompensationPulses.measurements': '',
+    'backlashCompensationPulses.measurementUnit': 'inch',
+    'backlashCompensationPulses.pulsesPerMicron': 4,
 };
 const formulaInputDisplayNames = {
     measurementLengthMm: 'Total measured length (mm)',
     readingsUm: 'Measured readings, from start to end (µm)',
+    measurements: 'Backlash measurements for this axis',
+    measurementUnit: 'Measurement unit',
+    pulsesPerMicron: 'Machine compensation pulses per micrometer',
     motorSteps: 'Full steps per motor turn',
     microstepping: 'Microsteps per full step',
     driveTeeth: 'Teeth on motor pulley or gear',
@@ -533,6 +553,11 @@ const formulaInputDisplayNames = {
     actualDistance: 'Distance the machine actually moved',
 };
 const formulaInputDescriptions = {
+    backlashCompensationPulses: {
+        measurements: 'Enter exactly 18 non-negative backlash readings from one axis, separated by commas or new lines. Use the document table order: first location rapid tests 1–3, first location machining-speed tests 1–3, then repeat for the other two locations. X locations: left, right, middle. Y locations: front, middle, back. For other axes, follow the machine-specific test layout.',
+        measurementUnit: 'Choose the unit used for every reading. Inch values follow the supplied procedure’s rounded conversion of 2.5 µm per 0.0001 in.',
+        pulsesPerMicron: 'The supplied procedure assumes 4 compensation pulses per micrometer. Change this only when the machine control or manufacturer specifies a different value.',
+    },
     straightnessErrorUm: {
         measurementLengthMm: 'Distance from the first measurement point to the last, in millimeters (mm).',
         readingsUm: 'Enter the measured deviations in micrometers (µm), ordered from the start to the end of the measured length and separated by commas. Include the readings at both ends; all points must be equally spaced. Example: 0, 10, 20, 30, 31.',
@@ -1506,6 +1531,11 @@ function initializeReferenceCharts() {
     refresh();
 }
 
+function isGraphableFormulaParameter(formulaName, name) {
+    return !formulaTextParameters.has(`${formulaName}.${name}`)
+        && !formulaInputOptions[`${formulaName}.${name}`];
+}
+
 function createFormulaBlock(savedData = null) {
     if (availableFormulas.length === 0) {
         throw new Error('No supported numeric formulas were found in the math library.');
@@ -1518,7 +1548,7 @@ function createFormulaBlock(savedData = null) {
         : availableFormulas[0];
     const parameters = formulaArguments.get(selectedFormula);
     const graphableParameters = parameters.filter(
-        ({ name }) => !formulaTextParameters.has(`${selectedFormula}.${name}`),
+        ({ name }) => isGraphableFormulaParameter(selectedFormula, name),
     );
     const defaultGraphInput =
         graphProfiles[selectedFormula]?.input ?? graphableParameters[0]?.name ?? '';
@@ -1989,7 +2019,7 @@ function renderInputsForBlock(blockNode, blockState) {
 
     const parameters = formulaArguments.get(blockState.selectedFormula);
     const graphableParameters = parameters.filter(
-        ({ name }) => !formulaTextParameters.has(`${blockState.selectedFormula}.${name}`),
+        ({ name }) => isGraphableFormulaParameter(blockState.selectedFormula, name),
     );
     graphInput.replaceChildren();
     graphableParameters.forEach(({ name }) => {
@@ -2020,6 +2050,8 @@ function renderInputsForBlock(blockNode, blockState) {
         const isTextInput = formulaTextParameters.has(
             `${blockState.selectedFormula}.${name}`,
         );
+        const isMultilineTextInput = blockState.selectedFormula === 'backlashCompensationPulses'
+            && name === 'measurements';
         blockState.inputs[name] = inputState;
 
         const wrapper = document.createElement('div');
@@ -2062,14 +2094,16 @@ function renderInputsForBlock(blockNode, blockState) {
         });
         const literalInput = inputOptions
             ? document.createElement('select')
-            : document.createElement('input');
-        if (!inputOptions) {
+            : isMultilineTextInput
+                ? document.createElement('textarea')
+                : document.createElement('input');
+        if (isMultilineTextInput) {
+            literalInput.rows = 3;
+            literalInput.placeholder = 'Enter 18 readings separated by commas or new lines';
+        } else if (!inputOptions) {
             literalInput.type = isTextInput ? 'text' : 'number';
-            if (isTextInput) {
-                literalInput.placeholder = 'e.g. 0, 10, 20, 30, 31';
-            } else {
-                literalInput.step = 'any';
-            }
+            if (isTextInput) literalInput.placeholder = 'e.g. 0, 10, 20, 30, 31';
+            else literalInput.step = 'any';
         } else {
             inputOptions.forEach(({ value, label: optionLabel }) => {
                 const option = document.createElement('option');
@@ -2078,7 +2112,9 @@ function renderInputsForBlock(blockNode, blockState) {
                 literalInput.appendChild(option);
             });
         }
-        literalInput.className = 'literal-input min-w-0 flex-1 bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200';
+        literalInput.className = isMultilineTextInput
+            ? 'literal-input min-h-24 min-w-0 flex-1 resize-y bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200'
+            : 'literal-input min-w-0 flex-1 bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200';
         literalInput.value = inputState.type === 'literal' && inputState.value !== null
             ? inputState.value
             : inputState.type === 'literal' && optionalFormulaParameters.has(
@@ -2214,6 +2250,14 @@ function invokeFormula(formulaName, parameters, values) {
             readingsUm,
         );
     }
+    if (parameterConfig?.type === 'backlash_measurements') {
+        const measurements = parseBacklashMeasurements(inputValues.measurements);
+        return CncHardwareMath[formulaName](
+            measurements,
+            inputValues.measurementUnit,
+            inputValues.pulsesPerMicron,
+        );
+    }
     return CncHardwareMath[formulaName](...values);
 }
 
@@ -2230,6 +2274,23 @@ function parseStraightnessReadings(value) {
         throw new Error('Each straightness reading must be a valid number separated by commas.');
     }
     return readings;
+}
+
+function parseBacklashMeasurements(value) {
+    if (typeof value !== 'string') {
+        throw new Error('Enter exactly 18 backlash measurements for one axis.');
+    }
+    const tokens = value.split(/[,\r\n]+/).map((token) => token.trim());
+    if (tokens.length !== 18 || tokens.some((token) => token === '')) {
+        throw new Error(
+            `Enter exactly 18 readings in the documented order; ${tokens.filter(Boolean).length} were entered.`,
+        );
+    }
+    const measurements = tokens.map(Number);
+    if (measurements.some((measurement) => !Number.isFinite(measurement) || measurement < 0)) {
+        throw new Error('Each backlash measurement must be a finite, non-negative number.');
+    }
+    return measurements;
 }
 
 function evaluatePipeline() {
@@ -3565,6 +3626,9 @@ function populateResultUnitSelector(formulaName, select, blockState) {
 }
 
 function formatFormulaResult(formulaName, value, displayUnit) {
+    if (formulaName === 'backlashCompensationPulses') {
+        return `${Math.round(value)} pulses`;
+    }
     const resultUnit = formulaResultUnits[formulaName];
     if (!resultUnit) return formatEngineeringValue(value);
 

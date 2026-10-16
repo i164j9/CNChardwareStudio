@@ -361,6 +361,9 @@
   .min-h-5 {
     min-height: calc(var(--spacing) * 5);
   }
+  .min-h-24 {
+    min-height: calc(var(--spacing) * 24);
+  }
   .min-h-screen {
     min-height: 100vh;
   }
@@ -405,6 +408,9 @@
   }
   .resize {
     resize: both;
+  }
+  .resize-y {
+    resize: vertical;
   }
   .list-decimal {
     list-style-type: decimal;

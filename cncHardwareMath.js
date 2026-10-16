@@ -1073,6 +1073,55 @@ const CncHardwareMath = {
   // ==========================================================================
 
   /**
+   * Averages backlash measurements and converts the result to compensation pulses.
+   * The inch conversion follows the supplied procedure's rounded 2.5 µm per 0.0001 in.
+   */
+  backlashCompensationPulses(
+    measuredBacklashReadings,
+    measurementUnit = "inch",
+    pulsesPerMicron = 4,
+  ) {
+    const micronsPerUnitByUnit = {
+      inch: 25000,
+      thou: 25,
+      mm: 1000,
+      micron: 1,
+    };
+    const micronsPerUnit = Object.hasOwn(micronsPerUnitByUnit, measurementUnit)
+      ? micronsPerUnitByUnit[measurementUnit]
+      : undefined;
+    if (
+      !Array.isArray(measuredBacklashReadings) ||
+      measuredBacklashReadings.length === 0 ||
+      measuredBacklashReadings.some(
+        (reading) => !Number.isFinite(reading) || reading < 0,
+      )
+    ) {
+      throw new RangeError(
+        "Enter one or more finite, non-negative backlash measurements.",
+      );
+    }
+    if (micronsPerUnit === undefined) {
+      throw new RangeError(
+        "Choose inches, thousandths of an inch, millimeters, or micrometers.",
+      );
+    }
+    if (!Number.isFinite(pulsesPerMicron) || pulsesPerMicron <= 0) {
+      throw new RangeError("Pulses per micrometer must be a positive number.");
+    }
+
+    const averageBacklash = measuredBacklashReadings.reduce(
+      (average, reading, index) => average + (reading - average) / (index + 1),
+      0,
+    );
+    const compensationPulses = averageBacklash * micronsPerUnit * pulsesPerMicron;
+    if (!Number.isFinite(compensationPulses)) {
+      throw new RangeError("The calculated backlash compensation is outside the supported range.");
+    }
+    return Math.round(compensationPulses);
+  },
+
+  /**
    * Compensates for physical backlash, minor manufacturing variances, or belt stretch.
    */
   calibrateSteps(currentSteps, commandedDistance, actualDistance) {
