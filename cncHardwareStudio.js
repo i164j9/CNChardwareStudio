@@ -966,6 +966,33 @@ function getGraphProfile(formulaName, inputName) {
     return graphInputProfiles[inputName] ?? null;
 }
 
+function getGraphAxisInfo(formulaName) {
+    const resultUnit = formulaResultUnits[formulaName];
+    if (!resultUnit) {
+        return {
+            key: `result:${formulaName}`,
+            label: `${formulaDisplayNames[formulaName] ?? humanizeName(formulaName)} result`,
+            factor: 1,
+        };
+    }
+    if (resultUnit.dimension) {
+        const conversion = resultUnitOptions[resultUnit.dimension];
+        const displayUnit = conversion.units.find(
+            ({ label }) => label === conversion.default,
+        );
+        return {
+            key: resultUnit.dimension,
+            label: displayUnit.label,
+            factor: (resultUnit.nativeFactor ?? 1) / displayUnit.toBase,
+        };
+    }
+    return {
+        key: resultUnit.unit ?? 'result',
+        label: resultUnit.unit ?? 'Calculated result',
+        factor: 1,
+    };
+}
+
 const addBtn = document.getElementById('add-formula-btn');
 const exportBtn = document.getElementById('export-btn');
 const importBtn = document.getElementById('import-btn');
@@ -1544,6 +1571,11 @@ function createFormulaBlock(savedData = null) {
             ? savedData.inputs
             : {},
     };
+    Object.defineProperty(blockState, 'graphSeries', {
+        configurable: true,
+        writable: true,
+        value: null,
+    });
     const savedGraphInput = savedData?.graphInput ?? savedData?.sweepTarget;
     if (parameters.some(({ name }) => name === savedGraphInput)) {
         blockState.graphInput = savedGraphInput;
@@ -1690,7 +1722,7 @@ function createFormulaBlock(savedData = null) {
         graphControls.hidden = isStraightness;
         graphHint.textContent = isStraightness
             ? 'This spreadsheet-style chart places each measured reading at its position along the length. It also draws the straight reference line between the first and last readings. Enter readings in order at equally spaced positions; the graph updates as you edit them.'
-            : 'The horizontal axis shows the selected input; the vertical axis shows the calculated answer. The graph recalculates the answer while changing only that input. All other inputs stay at their current values. Set the start and end values, then choose how many points to calculate.';
+            : 'The horizontal axis shows the selected input; the vertical axis shows the calculated answer. The graph recalculates the answer while changing only that input. All other inputs stay at their current values. Set the start and end values, then choose how many points to calculate. Matching graphs from other blocks are automatically combined when they use this same input, range, and point count.';
     };
     configureGraphExplanation();
     const graphStatus = document.createElement('p');
@@ -2244,6 +2276,7 @@ function renderBlockGraph(block, blockNode, scope) {
     const canvas = blockNode.querySelector('.graph-canvas');
     const status = blockNode.querySelector('.graph-status');
     const parameters = formulaArguments.get(block.selectedFormula);
+    block.graphSeries = null;
     const dynamicsGraphs = blockNode.querySelector('.dynamics-graphs');
     const isReflectedInertia = block.selectedFormula === 'reflectedLinearLoadInertia';
     canvas.setAttribute(
@@ -2319,12 +2352,30 @@ function renderBlockGraph(block, blockNode, scope) {
     }
     try {
         const graphProfile = getGraphProfile(block.selectedFormula, block.graphInput);
+        const axisInfo = getGraphAxisInfo(block.selectedFormula);
+        const xAxisLabel = graphProfile?.xLabel
+            ?? `${formulaInputDisplayNames[block.graphInput] ?? humanizeName(block.graphInput)} (input value)`;
+        const yAxisLabel = graphProfile?.yLabel ?? axisInfo.label;
         drawSweepGraph(
             canvas,
             points,
-            graphProfile?.xLabel ?? `${block.graphInput} (sweep input)`,
-            graphProfile?.yLabel ?? `${block.selectedFormula} output`,
+            xAxisLabel,
+            yAxisLabel,
         );
+        block.graphSeries = {
+            blockId: block.id,
+            formulaName: block.selectedFormula,
+            title: formulaDisplayNames[block.selectedFormula] ?? humanizeName(block.selectedFormula),
+            inputName: block.graphInput,
+            xAxisLabel,
+            xMin: block.graphMin,
+            xMax: block.graphMax,
+            sampleCount,
+            points: points.map(({ x, y }) => ({ x, y: y * axisInfo.factor })),
+            yAxisKey: axisInfo.key,
+            yAxisLabel: axisInfo.label,
+            failedSamples,
+        };
     } catch (error) {
         clearGraph(canvas);
         status.textContent = `Unable to draw graph: ${error.message}`;
@@ -2668,6 +2719,46 @@ function renderPipelineGraphGallery() {
         }))
         .filter(({ node }) => node);
     pipelineGraphs.hidden = graphBlocks.length === 0;
+    const combinedGroups = getCompatibleGraphSeriesGroups();
+    if (combinedGroups.length > 0) {
+        const combinedSection = document.createElement('section');
+        combinedSection.className = 'mb-5 rounded-xl border border-blue-900/60 bg-blue-950/10 p-4';
+        const combinedHeading = document.createElement('h3');
+        combinedHeading.className = 'text-base font-semibold text-blue-200';
+        combinedHeading.textContent = 'Master chart: automatically combined related graphs';
+        const combinedHelp = document.createElement('p');
+        combinedHelp.className = 'mt-1 text-xs leading-5 text-gray-400';
+        combinedHelp.textContent = 'These charts combine enabled formula graphs that use the same input over the same range and number of points. Up to two result units use separate labeled vertical axes; formulas with additional units remain in their individual charts.';
+        combinedSection.append(combinedHeading, combinedHelp);
+        pipelineGraphsContainer.appendChild(combinedSection);
+        combinedGroups.forEach((group) => {
+            const chart = document.createElement('div');
+            chart.className = 'combined-graph mt-4 rounded-lg border border-gray-800 bg-gray-950 p-3';
+            const heading = document.createElement('h4');
+            heading.className = 'text-sm font-semibold text-gray-200';
+            heading.textContent = `Shared horizontal axis: ${group.xAxisLabel}`;
+            const sources = document.createElement('p');
+            sources.className = 'mt-1 text-xs leading-5 text-gray-400';
+            sources.textContent = group.series
+                .map(({ title, yAxisLabel }) => `${title} (${yAxisLabel})`)
+                .join(' • ');
+            const combinedCanvas = document.createElement('canvas');
+            combinedCanvas.className = 'combined-sweep-canvas mt-2 block h-72 w-full';
+            combinedCanvas.setAttribute('role', 'img');
+            const chartStatus = document.createElement('p');
+            chartStatus.className = 'text-xs text-red-300';
+            chartStatus.hidden = true;
+            chart.append(heading, sources, combinedCanvas, chartStatus);
+            combinedSection.appendChild(chart);
+            try {
+                drawCombinedSweepGraph(combinedCanvas, group);
+            } catch (error) {
+                chartStatus.textContent = `Unable to draw combined chart: ${error.message}`;
+                chartStatus.hidden = false;
+            }
+        });
+    }
+
     graphBlocks.forEach(({ block, node }) => {
         const section = document.createElement('section');
         section.className = 'rounded-lg border border-gray-800 bg-gray-950 p-4';
@@ -2701,6 +2792,212 @@ function renderPipelineGraphGallery() {
         });
         pipelineGraphsContainer.appendChild(section);
     });
+}
+
+function getCompatibleGraphSeriesGroups() {
+    const groups = new Map();
+    activeBlocks.forEach((block) => {
+        const series = block.graphEnabled ? block.graphSeries : null;
+        if (!series) return;
+        const key = JSON.stringify([
+            series.inputName,
+            series.xMin,
+            series.xMax,
+            series.sampleCount,
+        ]);
+        const group = groups.get(key) ?? [];
+        group.push(series);
+        groups.set(key, group);
+    });
+
+    const combinedGroups = [];
+    groups.forEach((series) => {
+        if (series.length < 2) return;
+        const axes = [...new Set(series.map(({ yAxisKey }) => yAxisKey))];
+        if (axes.length <= 2) {
+            combinedGroups.push({
+                xAxisLabel: series[0].xAxisLabel,
+                series,
+            });
+            return;
+        }
+
+        const sameUnitGroups = new Map();
+        series.forEach((item) => {
+            const sameUnitSeries = sameUnitGroups.get(item.yAxisKey) ?? [];
+            sameUnitSeries.push(item);
+            sameUnitGroups.set(item.yAxisKey, sameUnitSeries);
+        });
+        sameUnitGroups.forEach((sameUnitSeries) => {
+            if (sameUnitSeries.length >= 2) {
+                combinedGroups.push({
+                    xAxisLabel: sameUnitSeries[0].xAxisLabel,
+                    series: sameUnitSeries,
+                });
+            }
+        });
+    });
+    return combinedGroups;
+}
+
+function drawCombinedSweepGraph(canvas, group) {
+    const bounds = canvas.getBoundingClientRect();
+    const pixelRatio = window.devicePixelRatio || 1;
+    const width = Math.max(320, Math.round(bounds.width));
+    const height = Math.max(240, Math.round(bounds.height));
+    canvas.width = Math.round(width * pixelRatio);
+    canvas.height = Math.round(height * pixelRatio);
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas 2D context is unavailable.');
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    context.clearRect(0, 0, width, height);
+
+    const axes = [...new Map(
+        group.series.map((series) => [
+            series.yAxisKey,
+            { key: series.yAxisKey, label: series.yAxisLabel },
+        ]),
+    ).values()];
+    const colors = ['#60a5fa', '#f59e0b', '#34d399', '#f472b6', '#a78bfa', '#22d3ee'];
+    const legendRows = Math.max(1, Math.ceil(group.series.length / 2));
+    const margin = {
+        top: 30 + legendRows * 19,
+        right: axes.length > 1 ? 72 : 18,
+        bottom: 44,
+        left: 72,
+    };
+    const plotWidth = width - margin.left - margin.right;
+    const plotHeight = height - margin.top - margin.bottom;
+    const xMin = group.series[0].xMin;
+    const xMax = group.series[0].xMax;
+    const ranges = axes.map((axis) => {
+        let min = Infinity;
+        let max = -Infinity;
+        group.series
+            .filter((series) => series.yAxisKey === axis.key)
+            .forEach((series) => {
+                series.points.forEach(({ y }) => {
+                    min = Math.min(min, y);
+                    max = Math.max(max, y);
+                });
+            });
+        if (min === max) {
+            const padding = Math.max(Math.abs(min) * 0.05, 1);
+            min -= padding;
+            max += padding;
+        } else {
+            const padding = (max - min) * 0.08;
+            min -= padding;
+            max += padding;
+        }
+        return { min, max };
+    });
+    const xAt = (value) =>
+        margin.left + ((value - xMin) / (xMax - xMin || 1)) * plotWidth;
+    const yAt = (value, axisIndex) => {
+        const range = ranges[axisIndex];
+        return margin.top + ((range.max - value) / (range.max - range.min)) * plotHeight;
+    };
+
+    context.font = '10px sans-serif';
+    context.lineWidth = 1;
+    context.strokeStyle = '#374151';
+    context.fillStyle = '#9ca3af';
+    for (let tick = 0; tick <= 4; tick += 1) {
+        const fraction = tick / 4;
+        const y = margin.top + plotHeight * fraction;
+        context.beginPath();
+        context.moveTo(margin.left, y);
+        context.lineTo(width - margin.right, y);
+        context.stroke();
+        const primary = ranges[0].max - (ranges[0].max - ranges[0].min) * fraction;
+        context.textAlign = 'right';
+        context.textBaseline = 'middle';
+        context.fillText(formatEngineeringValue(primary), margin.left - 7, y);
+        if (ranges.length > 1) {
+            const secondary = ranges[1].max - (ranges[1].max - ranges[1].min) * fraction;
+            context.textAlign = 'left';
+            context.fillText(
+                formatEngineeringValue(secondary),
+                width - margin.right + 7,
+                y,
+            );
+        }
+    }
+
+    group.series.forEach((series, index) => {
+        const axisIndex = axes.findIndex(({ key }) => key === series.yAxisKey);
+        const color = colors[index % colors.length];
+        context.strokeStyle = color;
+        context.lineWidth = 2;
+        context.beginPath();
+        series.points.forEach(({ x, y }, pointIndex) => {
+            const px = xAt(x);
+            const py = yAt(y, axisIndex);
+            if (pointIndex === 0) context.moveTo(px, py);
+            else context.lineTo(px, py);
+        });
+        context.stroke();
+
+        const legendColumn = index % 2;
+        const legendRow = Math.floor(index / 2);
+        const legendX = margin.left + legendColumn * (plotWidth / 2);
+        const legendY = 14 + legendRow * 19;
+        context.strokeStyle = color;
+        context.beginPath();
+        context.moveTo(legendX, legendY);
+        context.lineTo(legendX + 20, legendY);
+        context.stroke();
+        context.fillStyle = color;
+        context.textAlign = 'left';
+        context.textBaseline = 'middle';
+        const legendText = `${series.title} (${series.yAxisLabel})`;
+        const maximumLegendWidth = plotWidth / 2 - 30;
+        context.fillText(
+            legendText,
+            legendX + 26,
+            legendY,
+            Math.max(20, maximumLegendWidth),
+        );
+    });
+
+    context.fillStyle = '#9ca3af';
+    context.textAlign = 'center';
+    context.textBaseline = 'top';
+    for (let tick = 0; tick <= 4; tick += 1) {
+        const fraction = tick / 4;
+        const x = margin.left + plotWidth * fraction;
+        context.fillText(
+            formatEngineeringValue(xMin + (xMax - xMin) * fraction),
+            x,
+            margin.top + plotHeight + 7,
+        );
+    }
+    context.fillText(
+        group.xAxisLabel,
+        margin.left + plotWidth / 2,
+        height - 18,
+    );
+    context.save();
+    context.translate(14, margin.top + plotHeight / 2);
+    context.rotate(-Math.PI / 2);
+    context.fillText(axes[0].label, 0, 0);
+    context.restore();
+    if (axes.length > 1) {
+        context.save();
+        context.translate(width - 12, margin.top + plotHeight / 2);
+        context.rotate(Math.PI / 2);
+        context.fillText(axes[1].label, 0, 0);
+        context.restore();
+    }
+
+    const axisDescription = axes.length > 1
+        ? `Left vertical axis is ${axes[0].label}; right vertical axis is ${axes[1].label}.`
+        : `Vertical axis is ${axes[0].label}.`;
+    canvas.setAttribute(
+        'aria-label',
+        `Combined chart comparing ${group.series.map(({ title }) => title).join(', ')} against ${group.xAxisLabel}. ${axisDescription}`,
+    );
 }
 
 function clearGraph(canvas) {
