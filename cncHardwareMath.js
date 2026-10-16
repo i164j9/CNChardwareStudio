@@ -3,6 +3,36 @@
  * Covers Kinematics, Electrical, Mechanical, Stepper, and Servo Dynamics.
  * Calculations use metric units; conversion helpers support common imperial units.
  */
+function calculateStraightnessErrorUm(measurementLengthMm, readingsUm) {
+  if (!Number.isFinite(measurementLengthMm) || measurementLengthMm <= 0) {
+    throw new RangeError("Measurement length must be a positive number of millimeters.");
+  }
+  if (
+    !Array.isArray(readingsUm) ||
+    readingsUm.length < 3 ||
+    readingsUm.some((reading) => !Number.isFinite(reading))
+  ) {
+    throw new RangeError(
+      "Enter at least three valid straightness readings, including both ends and at least one point in between.",
+    );
+  }
+
+  const firstReading = readingsUm[0];
+  const lastReading = readingsUm[readingsUm.length - 1];
+  let minimumDeviation = Infinity;
+  let maximumDeviation = -Infinity;
+
+  readingsUm.forEach((reading, index) => {
+    const straightReference =
+      firstReading + ((lastReading - firstReading) * index) / (readingsUm.length - 1);
+    const deviation = reading - straightReference;
+    minimumDeviation = Math.min(minimumDeviation, deviation);
+    maximumDeviation = Math.max(maximumDeviation, deviation);
+  });
+
+  return maximumDeviation - minimumDeviation;
+}
+
 const CncHardwareMath = {
   // ==========================================================================
   // 1. KINEMATICS & DRIVE RESOLUTION (STEPS / COUNTS PER UNIT)
@@ -1048,6 +1078,22 @@ const CncHardwareMath = {
   calibrateSteps(currentSteps, commandedDistance, actualDistance) {
     if (actualDistance === 0) return currentSteps;
     return currentSteps * (commandedDistance / actualDistance);
+  },
+
+  /**
+   * Finds the deviation range from a straight reference joining the first and last readings.
+   * Readings must be in micrometers and evenly spaced across the measured length.
+   */
+  straightnessErrorUm(measurementLengthMm, readingsUm) {
+    return calculateStraightnessErrorUm(measurementLengthMm, readingsUm);
+  },
+
+  /**
+   * Scales the measured straightness error proportionally to a 500 mm reference length.
+   */
+  straightnessErrorPer500Mm(measurementLengthMm, readingsUm) {
+    return (calculateStraightnessErrorUm(measurementLengthMm, readingsUm) * 500)
+      / measurementLengthMm;
   },
 };
 

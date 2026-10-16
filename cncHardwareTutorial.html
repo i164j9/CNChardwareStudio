@@ -96,6 +96,43 @@
         </section>
 
         <section>
+            <h2 class="text-xl font-bold">Calculate straightness error from measurements</h2>
+            <p class="mt-2 leading-7 text-gray-300">
+                Choose <strong class="text-gray-100">Straightness error over the measured length</strong> or
+                <strong class="text-gray-100">Straightness error scaled to 500 mm</strong>. Enter the distance
+                between the first and last measurement points, then type the measured readings in order from start
+                to end as a comma-separated list in micrometers (µm). Include both end readings and take all readings
+                at equally spaced points. For example, readings of
+                <code class="rounded bg-gray-800 px-1.5 py-0.5 text-blue-200">0, 10, 20, 30, 31</code>
+                over <strong class="text-gray-100">350 mm</strong> produce about
+                <strong class="text-emerald-300">6.75 µm</strong> of end-to-end straightness error, or
+                <strong class="text-emerald-300">9.64 µm per 500 mm</strong> when scaled.
+            </p>
+            <p class="mt-3 leading-7 text-gray-300">
+                Turn on <strong class="text-gray-100">Graph</strong> to see a spreadsheet-style plot: the horizontal
+                axis is position along the measured length, and the vertical axis is the reading in micrometers.
+                The blue line shows your readings; the dashed orange line joins the first and last readings. The
+                straightness result is the full high-to-low range of the differences between those two lines.
+            </p>
+            <p class="mt-3 rounded-lg border border-amber-900 bg-amber-950/30 p-4 text-sm leading-6 text-amber-100">
+                This calculation compares each reading with a straight line joining the first and last readings.
+                It is an end-to-end reference method, not a minimum-zone straightness measurement under a specific
+                inspection standard.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="text-xl font-bold">Understand parameter-sweep graphs</h2>
+            <p class="mt-2 leading-7 text-gray-300">
+                For other calculations, a parameter-sweep graph changes one chosen input from its start value to its
+                end value and recalculates the result at each point. All other inputs stay as entered in the formula
+                block. The horizontal axis is the input being varied; the vertical axis is the calculated result.
+                Increase the number of points for a smoother-looking curve. Invalid calculations in the selected
+                range are left out and reported below the graph.
+            </p>
+        </section>
+
+        <section>
             <h2 class="text-xl font-bold">Use the hardware reference charts</h2>
             <p class="mt-2 leading-7 text-gray-300">
                 The angle chart answers: “If this arm or shaft turns a little, how far does a point on it move?”

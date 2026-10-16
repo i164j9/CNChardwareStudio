@@ -24,6 +24,14 @@ const excludedFormulas = new Set([
 ]);
 
 const formulaParameterRegistry = {
+    straightnessErrorUm: {
+        type: 'comma_separated_number_list',
+        inputs: ['measurementLengthMm', 'readingsUm'],
+    },
+    straightnessErrorPer500Mm: {
+        type: 'comma_separated_number_list',
+        inputs: ['measurementLengthMm', 'readingsUm'],
+    },
     estimateStepperSupplyCurrent: {
         type: 'destructured_object',
         inputs: [
@@ -61,6 +69,14 @@ const formulaParameterRegistry = {
         inputs: ['shaftPowerWatts', 'motorDriveEfficiency'],
     },
 };
+const formulaTextParameters = new Set([
+    'straightnessErrorUm.readingsUm',
+    'straightnessErrorPer500Mm.readingsUm',
+]);
+const straightnessFormulas = new Set([
+    'straightnessErrorUm',
+    'straightnessErrorPer500Mm',
+]);
 const resultUnitOptions = {
     length: {
         default: 'mm',
@@ -294,6 +310,8 @@ const formulaResultUnits = {
     getInertiaRatio: { unit: ':1' },
     requiredTorqueForThrust: { dimension: 'torque' },
     torqueAndRpmToWatts: { dimension: 'power' },
+    straightnessErrorUm: { unit: 'µm' },
+    straightnessErrorPer500Mm: { unit: 'µm/500 mm' },
     millimetersToInches: { dimension: 'length', nativeFactor: 0.0254 },
     inchesToMillimeters: { dimension: 'length', nativeFactor: 1e-3 },
     metersToFeet: { dimension: 'length', nativeFactor: 0.3048 },
@@ -313,6 +331,8 @@ const formulaResultUnits = {
     calibrateSteps: { unit: 'steps or counts' },
 };
 const formulaDisplayNames = {
+    straightnessErrorUm: 'Straightness error over the measured length',
+    straightnessErrorPer500Mm: 'Straightness error scaled to 500 mm',
     stepperScrewStepsPerMm: 'Axis steps per mm — stepper with belt or gears to screw',
     stepperDirectScrewStepsPerMm: 'Axis steps per mm — stepper directly connected to screw',
     stepperPureBeltStepsPerMm: 'Axis steps per mm — stepper driving a belt',
@@ -363,6 +383,8 @@ const formulaDisplayNames = {
     calibrateSteps: 'Correct the controller steps/mm from a measured move',
 };
 const formulaDescriptions = {
+    straightnessErrorUm: 'Calculates straightness error from measurements taken at evenly spaced points. It compares each reading with a straight reference line joining the first and last readings, then reports the total deviation range over the measured length.',
+    straightnessErrorPer500Mm: 'Calculates the same straightness deviation as the measured-length result, then scales it proportionally to a 500 mm length for comparison. This is an end-to-end reference method, not a minimum-zone straightness evaluation.',
     stepperScrewStepsPerMm: 'Calculates how many stepper motor commands move the axis 1 mm. Use this when a belt or gears connect the motor to a lead screw.',
     stepperDirectScrewStepsPerMm: 'Calculates how many stepper motor commands move the axis 1 mm when the motor is coupled directly to the lead screw.',
     stepperPureBeltStepsPerMm: 'Calculates how many stepper motor commands move a belt axis 1 mm from the motor step count, belt tooth spacing, and pulley teeth.',
@@ -424,6 +446,10 @@ const optionalFormulaParameters = new Set([
     'estimateDcSupplyCurrent.loadPowerWatts',
 ]);
 const formulaParameterDefaults = {
+    'straightnessErrorUm.measurementLengthMm': 500,
+    'straightnessErrorPer500Mm.measurementLengthMm': 500,
+    'straightnessErrorUm.readingsUm': '',
+    'straightnessErrorPer500Mm.readingsUm': '',
     'estimateStepperSupplyCurrent.energizedPhases': 2,
     'estimateStepperSupplyCurrent.driverEfficiency': 0.9,
     'estimateDcSupplyCurrent.supplyVoltage': 24,
@@ -439,6 +465,8 @@ const formulaParameterDefaults = {
     'electricalPowerFromShaft.motorDriveEfficiency': 0.8,
 };
 const formulaInputDisplayNames = {
+    measurementLengthMm: 'Total measured length (mm)',
+    readingsUm: 'Measured readings, from start to end (µm)',
     motorSteps: 'Full steps per motor turn',
     microstepping: 'Microsteps per full step',
     driveTeeth: 'Teeth on motor pulley or gear',
@@ -504,6 +532,14 @@ const formulaInputDisplayNames = {
     actualDistance: 'Distance the machine actually moved',
 };
 const formulaInputDescriptions = {
+    straightnessErrorUm: {
+        measurementLengthMm: 'Distance from the first measurement point to the last, in millimeters (mm).',
+        readingsUm: 'Enter the measured deviations in micrometers (µm), ordered from the start to the end of the measured length and separated by commas. Include the readings at both ends; all points must be equally spaced. Example: 0, 10, 20, 30, 31.',
+    },
+    straightnessErrorPer500Mm: {
+        measurementLengthMm: 'Distance from the first measurement point to the last, in millimeters (mm).',
+        readingsUm: 'Enter the measured deviations in micrometers (µm), ordered from the start to the end of the measured length and separated by commas. Include the readings at both ends; all points must be equally spaced. Example: 0, 10, 20, 30, 31.',
+    },
     stepperScrewStepsPerMm: {
         motorSteps: 'Full-step count for one motor revolution, usually 200 for a 1.8° stepper. Find it in the motor datasheet.',
         microstepping: 'Driver setting for how many microsteps divide each full motor step, such as 8 or 16.',
@@ -1453,9 +1489,14 @@ function createFormulaBlock(savedData = null) {
         ? savedData.selectedFormula
         : availableFormulas[0];
     const parameters = formulaArguments.get(selectedFormula);
+    const graphableParameters = parameters.filter(
+        ({ name }) => !formulaTextParameters.has(`${selectedFormula}.${name}`),
+    );
     const defaultGraphInput =
-        graphProfiles[selectedFormula]?.input ?? parameters[0]?.name ?? '';
-    const initialGraphInput = parameters.some(({ name }) => name === savedData?.graphInput)
+        graphProfiles[selectedFormula]?.input ?? graphableParameters[0]?.name ?? '';
+    const initialGraphInput = graphableParameters.some(
+        ({ name }) => name === savedData?.graphInput,
+    )
         ? savedData.graphInput
         : defaultGraphInput;
     const defaultGraphProfile = getGraphProfile(selectedFormula, initialGraphInput);
@@ -1576,13 +1617,20 @@ function createFormulaBlock(savedData = null) {
     graphWrapper.className = 'graph-wrapper mt-4 rounded-lg border border-gray-800/60 bg-gray-950 p-4';
     graphWrapper.hidden = !blockState.graphEnabled;
     const graphHeading = document.createElement('h3');
-    graphHeading.className = 'text-sm font-semibold text-gray-300';
-    graphHeading.textContent = 'Parameter sweep graph';
+    graphHeading.className = 'graph-heading text-sm font-semibold text-gray-300';
     const graphControls = document.createElement('div');
-    graphControls.className = 'mt-3 grid grid-cols-2 gap-3 md:grid-cols-4';
+    graphControls.className = 'graph-controls mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5';
+    const graphInputField = document.createElement('label');
+    graphInputField.className = 'col-span-2 space-y-1 text-xs text-gray-400';
+    graphInputField.append(document.createTextNode('Value to vary'));
     const graphInput = document.createElement('select');
-    graphInput.className = 'graph-input-select col-span-2 bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200';
+    graphInput.className = 'graph-input-select w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200';
     graphInput.setAttribute('aria-label', 'Input parameter to sweep');
+    graphInputField.append(graphInput);
+    const graphInputHelp = document.createElement('span');
+    graphInputHelp.className = 'block leading-4 text-gray-500';
+    graphInputHelp.textContent = 'Choose the input that changes from point to point.';
+    graphInputField.append(graphInputHelp);
     const graphMin = document.createElement('input');
     graphMin.type = 'number';
     graphMin.step = 'any';
@@ -1608,23 +1656,49 @@ function createFormulaBlock(savedData = null) {
     graphSamples.placeholder = 'Samples';
     const graphMinField = document.createElement('label');
     graphMinField.className = 'space-y-1 text-xs text-gray-400';
-    graphMinField.append(document.createTextNode('Sweep minimum'), graphMin);
+    graphMinField.append(document.createTextNode('Start of range'), graphMin);
+    graphMin.title = 'The first value of the selected input used to calculate the graph.';
+    const graphMinHelp = document.createElement('span');
+    graphMinHelp.className = 'block leading-4 text-gray-500';
+    graphMinHelp.textContent = 'The lowest value of the selected input to graph.';
+    graphMinField.append(graphMinHelp);
     const graphMaxField = document.createElement('label');
     graphMaxField.className = 'space-y-1 text-xs text-gray-400';
-    graphMaxField.append(document.createTextNode('Sweep maximum'), graphMax);
+    graphMaxField.append(document.createTextNode('End of range'), graphMax);
+    graphMax.title = 'The last value of the selected input used to calculate the graph.';
+    const graphMaxHelp = document.createElement('span');
+    graphMaxHelp.className = 'block leading-4 text-gray-500';
+    graphMaxHelp.textContent = 'The highest value of the selected input to graph.';
+    graphMaxField.append(graphMaxHelp);
     const graphSamplesField = document.createElement('label');
     graphSamplesField.className = 'space-y-1 text-xs text-gray-400';
-    graphSamplesField.append(document.createTextNode('Sample count'), graphSamples);
-    graphControls.append(graphInput, graphMinField, graphMaxField, graphSamplesField);
+    graphSamplesField.append(document.createTextNode('Number of points'), graphSamples);
+    graphSamples.title = 'How many input values to calculate between the start and end of the range. More points make a smoother-looking curve.';
+    const graphSamplesHelp = document.createElement('span');
+    graphSamplesHelp.className = 'block leading-4 text-gray-500';
+    graphSamplesHelp.textContent = 'How many values to calculate. More points make a smoother curve (2–500).';
+    graphSamplesField.append(graphSamplesHelp);
+    graphControls.append(graphInputField, graphMinField, graphMaxField, graphSamplesField);
     const graphHint = document.createElement('p');
-    graphHint.className = 'mt-2 text-xs text-gray-500';
-    graphHint.textContent = 'Sweep one input while holding the other inputs at their current values. Sample count: 2–500.';
+    graphHint.className = 'graph-hint mt-2 text-xs leading-5 text-gray-500';
+    graphHint.textContent = 'A parameter sweep recalculates the answer many times while changing only the selected input. All other inputs stay at their current values. Set the start and end of the range, then choose how many points to calculate (2–500).';
+    const configureGraphExplanation = () => {
+        const isStraightness = straightnessFormulas.has(blockState.selectedFormula);
+        graphHeading.textContent = isStraightness
+            ? 'Straightness readings across the measured length'
+            : 'Parameter sweep graph';
+        graphControls.hidden = isStraightness;
+        graphHint.textContent = isStraightness
+            ? 'This spreadsheet-style chart places each measured reading at its position along the length. It also draws the straight reference line between the first and last readings. Enter readings in order at equally spaced positions; the graph updates as you edit them.'
+            : 'The horizontal axis shows the selected input; the vertical axis shows the calculated answer. The graph recalculates the answer while changing only that input. All other inputs stay at their current values. Set the start and end values, then choose how many points to calculate.';
+    };
+    configureGraphExplanation();
     const graphStatus = document.createElement('p');
     graphStatus.className = 'graph-status mt-2 min-h-5 text-xs text-amber-300';
     const graphCanvas = document.createElement('canvas');
     graphCanvas.className = 'graph-canvas mt-2 block h-64 w-full';
     graphCanvas.setAttribute('role', 'img');
-    graphCanvas.setAttribute('aria-label', 'Formula output versus swept input');
+    graphCanvas.setAttribute('aria-label', 'Formula output versus selected input value');
     const accelerationControls = document.createElement('div');
     accelerationControls.className = 'acceleration-controls mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3';
     accelerationControls.hidden = selectedFormula !== 'reflectedLinearLoadInertia';
@@ -1748,6 +1822,7 @@ function createFormulaBlock(savedData = null) {
 
     formulaSelect.addEventListener('change', () => {
         blockState.selectedFormula = formulaSelect.value;
+        configureGraphExplanation();
         formulaHelp.textContent = formulaDescriptions[blockState.selectedFormula]
             ?? `Calculates ${formulaDisplayNames[blockState.selectedFormula] ?? humanizeName(blockState.selectedFormula)} from the values below.`;
         populateResultUnitSelector(blockState.selectedFormula, resultUnitSelect, blockState);
@@ -1877,17 +1952,20 @@ function renderInputsForBlock(blockNode, blockState) {
     container.replaceChildren();
 
     const parameters = formulaArguments.get(blockState.selectedFormula);
+    const graphableParameters = parameters.filter(
+        ({ name }) => !formulaTextParameters.has(`${blockState.selectedFormula}.${name}`),
+    );
     graphInput.replaceChildren();
-    parameters.forEach(({ name }) => {
+    graphableParameters.forEach(({ name }) => {
         const option = document.createElement('option');
         option.value = name;
-        option.textContent = `Sweep ${name}`;
+        option.textContent = `Sweep ${formulaInputDisplayNames[name] ?? humanizeName(name)}`;
         graphInput.appendChild(option);
     });
-    if (!parameters.some(({ name }) => name === blockState.graphInput)) {
+    if (!graphableParameters.some(({ name }) => name === blockState.graphInput)) {
         blockState.graphInput =
             graphProfiles[blockState.selectedFormula]?.input ??
-            parameters[0]?.name ??
+            graphableParameters[0]?.name ??
             '';
     }
     graphInput.value = blockState.graphInput;
@@ -1903,6 +1981,9 @@ function renderInputsForBlock(blockNode, blockState) {
         const inputOptions = formulaInputOptions[
             `${blockState.selectedFormula}.${name}`
         ];
+        const isTextInput = formulaTextParameters.has(
+            `${blockState.selectedFormula}.${name}`,
+        );
         blockState.inputs[name] = inputState;
 
         const wrapper = document.createElement('div');
@@ -1947,8 +2028,12 @@ function renderInputsForBlock(blockNode, blockState) {
             ? document.createElement('select')
             : document.createElement('input');
         if (!inputOptions) {
-            literalInput.type = 'number';
-            literalInput.step = 'any';
+            literalInput.type = isTextInput ? 'text' : 'number';
+            if (isTextInput) {
+                literalInput.placeholder = 'e.g. 0, 10, 20, 30, 31';
+            } else {
+                literalInput.step = 'any';
+            }
         } else {
             inputOptions.forEach(({ value, label: optionLabel }) => {
                 const option = document.createElement('option');
@@ -1969,8 +2054,8 @@ function renderInputsForBlock(blockNode, blockState) {
         const pipeSelect = document.createElement('select');
         pipeSelect.className = 'pipe-input min-w-0 flex-1 bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200';
         pipeSelect.classList.toggle('hidden', inputState.type !== 'pipe');
-        sourceSelect.hidden = Boolean(inputOptions);
-        pipeSelect.hidden = Boolean(inputOptions) || inputState.type !== 'pipe';
+        sourceSelect.hidden = Boolean(inputOptions) || isTextInput;
+        pipeSelect.hidden = Boolean(inputOptions) || isTextInput || inputState.type !== 'pipe';
         literalInput.classList.toggle('hidden', inputState.type !== 'literal');
         populatePipeDropdown(pipeSelect, blockState.id);
         if (inputState.type === 'pipe') pipeSelect.value = inputState.value;
@@ -1992,6 +2077,8 @@ function renderInputsForBlock(blockNode, blockState) {
             inputState.value = inputState.type === 'literal'
                 ? inputOptions
                     ? literalInput.value
+                    : isTextInput
+                    ? literalInput.value
                     : optionalFormulaParameters.has(`${blockState.selectedFormula}.${name}`) &&
                     literalInput.value === ''
                     ? null
@@ -2006,6 +2093,8 @@ function renderInputsForBlock(blockNode, blockState) {
                 ? null
                 : inputOptions
                     ? literalInput.value
+                    : isTextInput
+                    ? literalInput.value
                     : literalInput.valueAsNumber;
             evaluatePipeline();
         });
@@ -2019,6 +2108,12 @@ function renderInputsForBlock(blockNode, blockState) {
 function getInputValue(block, name, scope) {
     const input = block.inputs[name];
     if (!input) throw new Error(`Missing input "${name}".`);
+    if (formulaTextParameters.has(`${block.selectedFormula}.${name}`)) {
+        if (input.type !== 'literal') {
+            throw new Error(`"${formulaInputDisplayNames[name] ?? name}" must be entered as text.`);
+        }
+        return input.value;
+    }
     if (input.type === 'literal') {
         if (
             input.value === null &&
@@ -2075,7 +2170,29 @@ function invokeFormula(formulaName, parameters, values) {
             inputValues.efficiency,
         );
     }
+    if (parameterConfig?.type === 'comma_separated_number_list') {
+        const readingsUm = parseStraightnessReadings(inputValues.readingsUm);
+        return CncHardwareMath[formulaName](
+            inputValues.measurementLengthMm,
+            readingsUm,
+        );
+    }
     return CncHardwareMath[formulaName](...values);
+}
+
+function parseStraightnessReadings(value) {
+    if (typeof value !== 'string') {
+        throw new Error('Enter straightness readings as comma-separated numbers in micrometers (µm).');
+    }
+    const tokens = value.split(',');
+    if (tokens.length < 3 || tokens.some((token) => token.trim() === '')) {
+        throw new Error('Enter at least three comma-separated readings in micrometers (µm).');
+    }
+    const readings = tokens.map((token) => Number(token.trim()));
+    if (readings.some((reading) => !Number.isFinite(reading))) {
+        throw new Error('Each straightness reading must be a valid number separated by commas.');
+    }
+    return readings;
 }
 
 function evaluatePipeline() {
@@ -2129,8 +2246,18 @@ function renderBlockGraph(block, blockNode, scope) {
     const parameters = formulaArguments.get(block.selectedFormula);
     const dynamicsGraphs = blockNode.querySelector('.dynamics-graphs');
     const isReflectedInertia = block.selectedFormula === 'reflectedLinearLoadInertia';
+    canvas.setAttribute(
+        'aria-label',
+        straightnessFormulas.has(block.selectedFormula)
+            ? 'Spreadsheet-style straightness chart of measured readings and the reference line against position.'
+            : 'Formula output plotted against the selected input value.',
+    );
     dynamicsGraphs.hidden = !isReflectedInertia;
     canvas.hidden = isReflectedInertia;
+    if (straightnessFormulas.has(block.selectedFormula)) {
+        renderStraightnessGraph(block, canvas, status, scope);
+        return;
+    }
     const inputIndex = parameters.findIndex(({ name }) => name === block.graphInput);
     const sampleCount = block.graphSamples;
     if (
@@ -2206,6 +2333,48 @@ function renderBlockGraph(block, blockNode, scope) {
     status.textContent = failedSamples > 0
         ? `${points.length} valid points; ${failedSamples} invalid samples omitted.`
         : `${points.length} samples plotted.`;
+}
+
+function renderStraightnessGraph(block, canvas, status, scope) {
+    const parameters = formulaArguments.get(block.selectedFormula);
+    const lengthIndex = parameters.findIndex(({ name }) => name === 'measurementLengthMm');
+    const readingsIndex = parameters.findIndex(({ name }) => name === 'readingsUm');
+    try {
+        const measurementLengthMm = getInputValue(
+            block,
+            parameters[lengthIndex].name,
+            scope,
+        );
+        const readingsUm = parseStraightnessReadings(
+            getInputValue(block, parameters[readingsIndex].name, scope),
+        );
+        if (!Number.isFinite(measurementLengthMm) || measurementLengthMm <= 0) {
+            throw new Error('Enter a positive measured length in millimeters.');
+        }
+
+        const positionsMm = readingsUm.map(
+            (_, index) => (measurementLengthMm * index) / (readingsUm.length - 1),
+        );
+        const referenceReadingsUm = readingsUm.map(
+            (_, index) =>
+                readingsUm[0] +
+                ((readingsUm.at(-1) - readingsUm[0]) * index) / (readingsUm.length - 1),
+        );
+        drawStraightnessGraph(canvas, positionsMm, readingsUm, referenceReadingsUm);
+
+        const straightnessUm = CncHardwareMath.straightnessErrorUm(
+            measurementLengthMm,
+            readingsUm,
+        );
+        const straightnessPer500Mm = CncHardwareMath.straightnessErrorPer500Mm(
+            measurementLengthMm,
+            readingsUm,
+        );
+        status.textContent = `${readingsUm.length} readings plotted, spaced ${formatEngineeringValue(measurementLengthMm / (readingsUm.length - 1))} mm apart. Straightness error: ${formatEngineeringValue(straightnessUm)} µm over ${formatEngineeringValue(measurementLengthMm)} mm; ${formatEngineeringValue(straightnessPer500Mm)} µm per 500 mm when scaled.`;
+    } catch (error) {
+        clearGraph(canvas);
+        status.textContent = `Cannot draw the straightness chart: ${error.message}`;
+    }
 }
 
 function renderInertiaTorqueGraphs(block, blockNode, status, scope) {
@@ -2504,7 +2673,7 @@ function renderPipelineGraphGallery() {
         section.className = 'rounded-lg border border-gray-800 bg-gray-950 p-4';
         const heading = document.createElement('h3');
         heading.className = 'mb-3 text-sm font-semibold text-blue-300';
-        heading.textContent = `Block ${activeBlocks.indexOf(block) + 1}: ${block.selectedFormula}`;
+        heading.textContent = `Block ${activeBlocks.indexOf(block) + 1}: ${formulaDisplayNames[block.selectedFormula] ?? humanizeName(block.selectedFormula)}`;
         section.appendChild(heading);
         const sourceCanvases = [...node.querySelectorAll(
             '.graph-canvas:not([hidden]), .dynamics-graphs:not([hidden]) canvas:not([hidden])',
@@ -2612,6 +2781,139 @@ function drawSweepGraph(canvas, points, xAxisLabel, yAxisLabel) {
     canvas.setAttribute(
         'aria-label',
         `Graph of ${yAxisLabel} against ${xAxisLabel}, from ${formatEngineeringValue(xMin)} to ${formatEngineeringValue(xMax)}.`,
+    );
+}
+
+function drawStraightnessGraph(canvas, positionsMm, readingsUm, referenceReadingsUm) {
+    const bounds = canvas.getBoundingClientRect();
+    const pixelRatio = window.devicePixelRatio || 1;
+    const width = Math.max(320, Math.round(bounds.width));
+    const height = Math.max(220, Math.round(bounds.height));
+    canvas.width = Math.round(width * pixelRatio);
+    canvas.height = Math.round(height * pixelRatio);
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas 2D context is unavailable.');
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    context.clearRect(0, 0, width, height);
+
+    const margin = { top: 54, right: 16, bottom: 44, left: 62 };
+    const plotWidth = width - margin.left - margin.right;
+    const plotHeight = height - margin.top - margin.bottom;
+    const xMin = 0;
+    const xMax = positionsMm.at(-1);
+    const allReadings = [...readingsUm, ...referenceReadingsUm];
+    let yMin = Infinity;
+    let yMax = -Infinity;
+    allReadings.forEach((reading) => {
+        yMin = Math.min(yMin, reading);
+        yMax = Math.max(yMax, reading);
+    });
+    if (yMin === yMax) {
+        const padding = Math.max(Math.abs(yMin) * 0.05, 1);
+        yMin -= padding;
+        yMax += padding;
+    } else {
+        const padding = (yMax - yMin) * 0.08;
+        yMin -= padding;
+        yMax += padding;
+    }
+
+    const xAt = (value) =>
+        margin.left + ((value - xMin) / (xMax - xMin || 1)) * plotWidth;
+    const yAt = (value) =>
+        margin.top + ((yMax - value) / (yMax - yMin)) * plotHeight;
+
+    context.font = '10px sans-serif';
+    context.lineWidth = 1;
+    context.strokeStyle = '#374151';
+    context.fillStyle = '#9ca3af';
+    for (let tick = 0; tick <= 4; tick += 1) {
+        const fraction = tick / 4;
+        const y = margin.top + plotHeight * fraction;
+        const value = yMax - (yMax - yMin) * fraction;
+        context.beginPath();
+        context.moveTo(margin.left, y);
+        context.lineTo(width - margin.right, y);
+        context.stroke();
+        context.textAlign = 'right';
+        context.textBaseline = 'middle';
+        context.fillText(formatEngineeringValue(value), margin.left - 7, y);
+
+        const x = margin.left + plotWidth * fraction;
+        const position = xMin + (xMax - xMin) * fraction;
+        context.beginPath();
+        context.moveTo(x, margin.top);
+        context.lineTo(x, margin.top + plotHeight);
+        context.stroke();
+        context.textAlign = 'center';
+        context.textBaseline = 'top';
+        context.fillText(formatEngineeringValue(position), x, margin.top + plotHeight + 7);
+    }
+
+    const drawSeries = (values, color, dashed = false, showMarkers = false) => {
+        context.strokeStyle = color;
+        context.fillStyle = color;
+        context.lineWidth = 2;
+        context.setLineDash(dashed ? [5, 4] : []);
+        context.beginPath();
+        values.forEach((value, index) => {
+            const x = xAt(positionsMm[index]);
+            const y = yAt(value);
+            if (index === 0) context.moveTo(x, y);
+            else context.lineTo(x, y);
+        });
+        context.stroke();
+        context.setLineDash([]);
+        if (showMarkers) {
+            values.forEach((value, index) => {
+                context.beginPath();
+                context.arc(xAt(positionsMm[index]), yAt(value), 3, 0, Math.PI * 2);
+                context.fill();
+            });
+        }
+    };
+    drawSeries(readingsUm, '#60a5fa', false, true);
+    drawSeries(referenceReadingsUm, '#f59e0b', true);
+
+    context.font = '11px sans-serif';
+    context.textBaseline = 'middle';
+    context.textAlign = 'left';
+    context.strokeStyle = '#60a5fa';
+    context.fillStyle = '#60a5fa';
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(margin.left, 16);
+    context.lineTo(margin.left + 20, 16);
+    context.stroke();
+    context.beginPath();
+    context.arc(margin.left + 10, 16, 3, 0, Math.PI * 2);
+    context.fill();
+    context.fillText('Measured readings', margin.left + 26, 16);
+    context.strokeStyle = '#f59e0b';
+    context.setLineDash([5, 4]);
+    context.beginPath();
+    context.moveTo(margin.left, 36);
+    context.lineTo(margin.left + 20, 36);
+    context.stroke();
+    context.setLineDash([]);
+    context.fillStyle = '#f59e0b';
+    context.fillText('Straight line between end readings', margin.left + 26, 36);
+
+    context.fillStyle = '#9ca3af';
+    context.textAlign = 'center';
+    context.textBaseline = 'top';
+    context.fillText('Position along measured length (mm)', margin.left + plotWidth / 2, height - 22);
+    context.save();
+    context.translate(14, margin.top + plotHeight / 2);
+    context.rotate(-Math.PI / 2);
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText('Measured reading (µm)', 0, 0);
+    context.restore();
+
+    canvas.setAttribute(
+        'aria-label',
+        `Straightness chart with ${readingsUm.length} measured readings and the straight reference line between the end readings. Horizontal axis is position from 0 to ${formatEngineeringValue(xMax)} millimeters; vertical axis is measurement in micrometers.`,
     );
 }
 
