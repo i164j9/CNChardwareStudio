@@ -154,6 +154,69 @@ const CncHardwareMath = {
   },
 
   /**
+   * Calculates voltage from current and resistance using Ohm's law.
+   */
+  voltageFromCurrentAndResistance(currentAmps, resistanceOhms) {
+    if (
+      !Number.isFinite(currentAmps) ||
+      currentAmps < 0 ||
+      !Number.isFinite(resistanceOhms) ||
+      resistanceOhms < 0
+    ) {
+      throw new RangeError(
+        "Current and resistance must be finite and non-negative.",
+      );
+    }
+    const voltage = currentAmps * resistanceOhms;
+    if (!Number.isFinite(voltage)) {
+      throw new RangeError("The calculated voltage is outside the supported range.");
+    }
+    return voltage;
+  },
+
+  /**
+   * Calculates resistance from voltage and current using Ohm's law.
+   */
+  resistanceFromVoltageAndCurrent(voltage, currentAmps) {
+    if (
+      !Number.isFinite(voltage) ||
+      voltage < 0 ||
+      !Number.isFinite(currentAmps) ||
+      currentAmps <= 0
+    ) {
+      throw new RangeError(
+        "Voltage must be finite and non-negative, and current must be positive.",
+      );
+    }
+    const resistance = voltage / currentAmps;
+    if (!Number.isFinite(resistance)) {
+      throw new RangeError("The calculated resistance is outside the supported range.");
+    }
+    return resistance;
+  },
+
+  /**
+   * Calculates RMS current in an AC circuit from RMS voltage and impedance magnitude.
+   */
+  acRmsCurrentFromImpedance(voltageRms, impedanceOhms) {
+    if (
+      !Number.isFinite(voltageRms) ||
+      voltageRms < 0 ||
+      !Number.isFinite(impedanceOhms) ||
+      impedanceOhms <= 0
+    ) {
+      throw new RangeError(
+        "RMS voltage must be non-negative and impedance must be positive.",
+      );
+    }
+    const current = voltageRms / impedanceOhms;
+    if (!Number.isFinite(current)) {
+      throw new RangeError("The calculated current is outside the supported range.");
+    }
+    return current;
+  },
+
+  /**
    * Calculates single-phase AC current from real power, voltage, and power factor.
    */
   singlePhaseAcCurrent(powerWatts, voltage, powerFactor = 1) {
@@ -231,6 +294,36 @@ const CncHardwareMath = {
       throw new RangeError("Peak current must be finite and non-negative.");
     }
     return currentPeak / Math.SQRT2;
+  },
+
+  /**
+   * Converts a positive cycle period in seconds to frequency in hertz.
+   */
+  acFrequencyFromPeriodHz(periodSeconds) {
+    if (!Number.isFinite(periodSeconds) || periodSeconds <= 0) {
+      throw new RangeError("Cycle period must be a positive number of seconds.");
+    }
+    return 1 / periodSeconds;
+  },
+
+  /**
+   * Converts a positive frequency in hertz to cycle period in seconds.
+   */
+  acTimePeriodSeconds(frequencyHz) {
+    if (!Number.isFinite(frequencyHz) || frequencyHz <= 0) {
+      throw new RangeError("Frequency must be a positive number of hertz.");
+    }
+    return 1 / frequencyHz;
+  },
+
+  /**
+   * Converts frequency in hertz to angular frequency in radians per second.
+   */
+  acAngularFrequencyRadPerSecond(frequencyHz) {
+    if (!Number.isFinite(frequencyHz) || frequencyHz < 0) {
+      throw new RangeError("Frequency must be a non-negative number of hertz.");
+    }
+    return 2 * Math.PI * frequencyHz;
   },
 
   /**
@@ -525,6 +618,116 @@ const CncHardwareMath = {
   },
 
   /**
+   * Calculates the equivalent capacitance of capacitors connected in series.
+   * Accepts two or more capacitances in farads.
+   */
+  seriesCapacitanceFarads(capacitancesFarads) {
+    if (
+      !Array.isArray(capacitancesFarads) ||
+      capacitancesFarads.length < 2 ||
+      capacitancesFarads.some(
+        (capacitance) => !Number.isFinite(capacitance) || capacitance <= 0,
+      )
+    ) {
+      throw new RangeError(
+        "Enter at least two finite, positive capacitance values in farads.",
+      );
+    }
+    const reciprocalSum = capacitancesFarads.reduce(
+      (sum, capacitance) => sum + 1 / capacitance,
+      0,
+    );
+    const equivalentCapacitance = 1 / reciprocalSum;
+    if (!Number.isFinite(equivalentCapacitance) || equivalentCapacitance <= 0) {
+      throw new RangeError("The equivalent capacitance is outside the supported range.");
+    }
+    return equivalentCapacitance;
+  },
+
+  /**
+   * Calculates the equivalent capacitance of capacitors connected in parallel.
+   * Accepts two or more capacitances in farads.
+   */
+  parallelCapacitanceFarads(capacitancesFarads) {
+    if (
+      !Array.isArray(capacitancesFarads) ||
+      capacitancesFarads.length < 2 ||
+      capacitancesFarads.some(
+        (capacitance) => !Number.isFinite(capacitance) || capacitance <= 0,
+      )
+    ) {
+      throw new RangeError(
+        "Enter at least two finite, positive capacitance values in farads.",
+      );
+    }
+    const equivalentCapacitance = capacitancesFarads.reduce(
+      (sum, capacitance) => sum + capacitance,
+      0,
+    );
+    if (!Number.isFinite(equivalentCapacitance)) {
+      throw new RangeError("The equivalent capacitance is outside the supported range.");
+    }
+    return equivalentCapacitance;
+  },
+
+  /**
+   * Calculates the equivalent resistance of resistors connected in series.
+   * Accepts two or more resistances in ohms.
+   */
+  seriesResistanceOhms(resistancesOhms) {
+    if (
+      !Array.isArray(resistancesOhms) ||
+      resistancesOhms.length < 2 ||
+      resistancesOhms.some(
+        (resistance) => !Number.isFinite(resistance) || resistance < 0,
+      )
+    ) {
+      throw new RangeError(
+        "Enter at least two finite, non-negative resistance values in ohms.",
+      );
+    }
+    const equivalentResistance = resistancesOhms.reduce(
+      (sum, resistance) => sum + resistance,
+      0,
+    );
+    if (!Number.isFinite(equivalentResistance)) {
+      throw new RangeError("The equivalent resistance is outside the supported range.");
+    }
+    return equivalentResistance;
+  },
+
+  /**
+   * Calculates the equivalent resistance of resistors connected in parallel.
+   * Accepts two or more resistances in ohms; a zero-ohm branch shorts the network.
+   */
+  parallelResistanceOhms(resistancesOhms) {
+    if (
+      !Array.isArray(resistancesOhms) ||
+      resistancesOhms.length < 2 ||
+      resistancesOhms.some(
+        (resistance) => !Number.isFinite(resistance) || resistance < 0,
+      )
+    ) {
+      throw new RangeError(
+        "Enter at least two finite, non-negative resistance values in ohms.",
+      );
+    }
+    if (resistancesOhms.some((resistance) => resistance === 0)) return 0;
+    const reciprocalSum = resistancesOhms.reduce(
+      (sum, resistance) => sum + 1 / resistance,
+      0,
+    );
+    if (!Number.isFinite(reciprocalSum) || reciprocalSum <= 0) {
+      throw new RangeError("The equivalent resistance is outside the supported range.");
+    }
+    const equivalentResistance = 1 / reciprocalSum;
+    if (!Number.isFinite(equivalentResistance) || equivalentResistance <= 0) {
+      throw new RangeError("The equivalent resistance is outside the supported range.");
+    }
+    return equivalentResistance;
+  },
+
+  /**
    * Calculates capacitor reactance in ohms. Capacitance is in farads and
    * frequency is in hertz; zero frequency has infinite ideal reactance.
    */
@@ -556,6 +759,187 @@ const CncHardwareMath = {
       throw new RangeError("Inductance and capacitance must be positive.");
     }
     return 1 / (2 * Math.PI * Math.sqrt(inductanceHenries * capacitanceFarads));
+  },
+
+  /**
+   * Calculates the ideal LC resonant angular frequency in radians per second.
+   */
+  resonantAngularFrequencyRadPerSecond(inductanceHenries, capacitanceFarads) {
+    if (
+      !Number.isFinite(inductanceHenries) ||
+      inductanceHenries <= 0 ||
+      !Number.isFinite(capacitanceFarads) ||
+      capacitanceFarads <= 0
+    ) {
+      throw new RangeError("Inductance and capacitance must be positive.");
+    }
+    return 1 / Math.sqrt(inductanceHenries * capacitanceFarads);
+  },
+
+  /**
+   * Calculates series-RLC quality factor from resistance, inductance, and capacitance.
+   */
+  seriesRlcQualityFactor(resistanceOhms, inductanceHenries, capacitanceFarads) {
+    if (
+      !Number.isFinite(resistanceOhms) ||
+      resistanceOhms <= 0 ||
+      !Number.isFinite(inductanceHenries) ||
+      inductanceHenries <= 0 ||
+      !Number.isFinite(capacitanceFarads) ||
+      capacitanceFarads <= 0
+    ) {
+      throw new RangeError(
+        "Resistance, inductance, and capacitance must be positive.",
+      );
+    }
+    return Math.sqrt(inductanceHenries / capacitanceFarads) / resistanceOhms;
+  },
+
+  /**
+   * Calculates quality factor from resonant angular frequency and angular bandwidth.
+   */
+  qualityFactorFromBandwidth(
+    resonantAngularFrequencyRadPerSecond,
+    bandwidthAngularFrequencyRadPerSecond,
+  ) {
+    if (
+      !Number.isFinite(resonantAngularFrequencyRadPerSecond) ||
+      resonantAngularFrequencyRadPerSecond <= 0 ||
+      !Number.isFinite(bandwidthAngularFrequencyRadPerSecond) ||
+      bandwidthAngularFrequencyRadPerSecond <= 0
+    ) {
+      throw new RangeError(
+        "Resonant angular frequency and bandwidth must be positive.",
+      );
+    }
+    return resonantAngularFrequencyRadPerSecond
+      / bandwidthAngularFrequencyRadPerSecond;
+  },
+
+  /**
+   * Calculates sinusoidal instantaneous voltage from peak voltage, angular frequency, and time.
+   */
+  instantaneousAcVoltage(voltagePeak, angularFrequencyRadPerSecond, timeSeconds) {
+    if (
+      !Number.isFinite(voltagePeak) ||
+      voltagePeak < 0 ||
+      !Number.isFinite(angularFrequencyRadPerSecond) ||
+      angularFrequencyRadPerSecond < 0 ||
+      !Number.isFinite(timeSeconds)
+    ) {
+      throw new RangeError(
+        "Peak voltage and angular frequency must be non-negative, and time must be finite.",
+      );
+    }
+    return voltagePeak * Math.sin(angularFrequencyRadPerSecond * timeSeconds);
+  },
+
+  /**
+   * Calculates sinusoidal instantaneous current from peak current, angular frequency, and time.
+   */
+  instantaneousAcCurrent(currentPeak, angularFrequencyRadPerSecond, timeSeconds) {
+    if (
+      !Number.isFinite(currentPeak) ||
+      currentPeak < 0 ||
+      !Number.isFinite(angularFrequencyRadPerSecond) ||
+      angularFrequencyRadPerSecond < 0 ||
+      !Number.isFinite(timeSeconds)
+    ) {
+      throw new RangeError(
+        "Peak current and angular frequency must be non-negative, and time must be finite.",
+      );
+    }
+    return currentPeak * Math.sin(angularFrequencyRadPerSecond * timeSeconds);
+  },
+
+  /**
+   * Calculates peak AC current from peak voltage and impedance magnitude.
+   */
+  acPeakCurrentFromImpedance(voltagePeak, impedanceOhms) {
+    if (
+      !Number.isFinite(voltagePeak) ||
+      voltagePeak < 0 ||
+      !Number.isFinite(impedanceOhms) ||
+      impedanceOhms <= 0
+    ) {
+      throw new RangeError(
+        "Peak voltage must be non-negative and impedance must be positive.",
+      );
+    }
+    return voltagePeak / impedanceOhms;
+  },
+
+  /**
+   * Calculates average sinusoidal power from peak values and phase difference in radians.
+   */
+  averageAcPowerWatts(voltagePeak, currentPeak, phaseAngleRadians) {
+    if (
+      !Number.isFinite(voltagePeak) ||
+      voltagePeak < 0 ||
+      !Number.isFinite(currentPeak) ||
+      currentPeak < 0 ||
+      !Number.isFinite(phaseAngleRadians)
+    ) {
+      throw new RangeError(
+        "Peak voltage and current must be non-negative, and phase angle must be finite.",
+      );
+    }
+    return 0.5 * voltagePeak * currentPeak * Math.cos(phaseAngleRadians);
+  },
+
+  /**
+   * Calculates average power dissipated by a resistor from RMS current and resistance.
+   */
+  resistorAcPowerWatts(currentRms, resistanceOhms) {
+    if (
+      !Number.isFinite(currentRms) ||
+      currentRms < 0 ||
+      !Number.isFinite(resistanceOhms) ||
+      resistanceOhms < 0
+    ) {
+      throw new RangeError(
+        "RMS current and resistance must be finite and non-negative.",
+      );
+    }
+    return currentRms ** 2 * resistanceOhms;
+  },
+
+  /**
+   * Calculates an ideal transformer's secondary RMS voltage from its turns ratio.
+   */
+  idealTransformerSecondaryVoltage(primaryVoltageRms, primaryTurns, secondaryTurns) {
+    if (
+      !Number.isFinite(primaryVoltageRms) ||
+      primaryVoltageRms < 0 ||
+      !Number.isInteger(primaryTurns) ||
+      primaryTurns <= 0 ||
+      !Number.isInteger(secondaryTurns) ||
+      secondaryTurns <= 0
+    ) {
+      throw new RangeError(
+        "Primary voltage must be non-negative, and primary and secondary turns must be positive integers.",
+      );
+    }
+    return primaryVoltageRms * secondaryTurns / primaryTurns;
+  },
+
+  /**
+   * Calculates an ideal transformer's secondary RMS current from its turns ratio.
+   */
+  idealTransformerSecondaryCurrent(primaryCurrentRms, primaryTurns, secondaryTurns) {
+    if (
+      !Number.isFinite(primaryCurrentRms) ||
+      primaryCurrentRms < 0 ||
+      !Number.isInteger(primaryTurns) ||
+      primaryTurns <= 0 ||
+      !Number.isInteger(secondaryTurns) ||
+      secondaryTurns <= 0
+    ) {
+      throw new RangeError(
+        "Primary current must be non-negative, and primary and secondary turns must be positive integers.",
+      );
+    }
+    return primaryCurrentRms * primaryTurns / secondaryTurns;
   },
 
   /**

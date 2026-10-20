@@ -519,7 +519,8 @@
                     <p class="mt-2 text-sm leading-6 text-gray-300">
                         DC and AC current, RMS/peak conversions, single- and balanced three-phase real/apparent/reactive
                         power and power factor, grouped-load DC supply sizing, estimated stepper supply current, series
-                        RLC impedance/current/phase, reactance, resonance, and stored energy.
+                        RLC impedance/current/phase, reactance, resonance, quality factor, ideal transformer ratios,
+                        sinusoidal instantaneous values, and stored energy.
                     </p>
                 </article>
                 <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
@@ -595,6 +596,92 @@
                         The phase-angle helper returns radians: positive is inductive and negative is capacitive.
                     </p>
                 </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">Instantaneous sine-wave voltage and current</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        The <strong class="text-gray-100">Instantaneous voltage/current of a sine wave</strong>
+                        formulas calculate <code class="text-gray-100">x(t) = Xpeak sin(ωt)</code> for a chosen
+                        elapsed time. Enter peak amplitude, angular frequency in radians per second (rad/s), and
+                        time in seconds. If you know frequency in hertz, convert it with
+                        <code class="text-gray-100">ω = 2πf</code>. These helpers assume zero phase offset; they do
+                        not model a circuit response or a time-varying frequency.
+                    </p>
+                </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">Standard Ohm’s law and AC/DC voltage</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        The Ohm’s law blocks solve <code class="text-gray-100">I = V/R</code>,
+                        <code class="text-gray-100">V = IR</code>, and <code class="text-gray-100">R = V/I</code>.
+                        For DC, enter the steady DC voltage and current. For sinusoidal AC, these resistance-based
+                        forms apply directly only to a purely resistive load, and you must enter RMS voltage and
+                        RMS current. In a reactive AC circuit, voltage divided by current is impedance magnitude,
+                        not resistance; use an AC impedance formula instead. Do not mix peak and RMS values.
+                        For power, use the DC power block with <code class="text-gray-100">P = VI</code>, or an
+                        AC real-power block with RMS values and power factor.
+                    </p>
+                </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">Series and parallel resistance and capacitance</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        For each equivalent-component block, enter at least two values in the listed base unit,
+                        separated by commas or new lines. Series resistance adds:
+                        <code class="text-gray-100">Req = ΣRi</code>; parallel resistance uses
+                        <code class="text-gray-100">1/Req = Σ(1/Ri)</code>. Series capacitance uses
+                        <code class="text-gray-100">1/Ceq = Σ(1/Ci)</code>; parallel capacitance adds:
+                        <code class="text-gray-100">Ceq = ΣCi</code>. Enter resistance in ohms and capacitance
+                        in farads; convert datasheet values such as µF or kΩ before entering.
+                    </p>
+                </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">AC Ohm’s law using impedance</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        <strong class="text-gray-100">Peak AC current from peak voltage and impedance</strong>
+                        calculates <code class="text-gray-100">Ipeak = Vpeak/Z</code>. Enter peak voltage in volts
+                        and the impedance magnitude at the same source frequency in ohms. The
+                        <strong class="text-gray-100">AC RMS current from RMS voltage and impedance</strong> block
+                        instead calculates <code class="text-gray-100">Irms = Vrms/|Z|</code>; enter RMS voltage.
+                        Use the series-RLC current formula for RMS current in a series RLC circuit. Reactance is
+                        frequency-dependent AC opposition: <code class="text-gray-100">XL = 2πfL</code> and
+                        <code class="text-gray-100">XC = 1/(2πfC)</code>. At DC, the ideal inductor has zero
+                        reactance and the ideal capacitor blocks steady-state current (infinite reactance).
+                    </p>
+                </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">Average AC power and resistor heating</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        <strong class="text-gray-100">Average AC power from peak voltage, peak current, and phase
+                        angle</strong> uses <code class="text-gray-100">P = ½ Vpeak Ipeak cos(φ)</code>, with phase
+                        angle in radians. <strong class="text-gray-100">Average resistor power from RMS current and
+                        resistance</strong> uses <code class="text-gray-100">P = Irms²R</code>. For sinusoidal
+                        steady-state values, the resistor form is also <code class="text-gray-100">Vrms Irms</code>;
+                        the existing single-phase real-power formula can calculate that using power factor 1 for a
+                        pure resistor.
+                    </p>
+                </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">Resonant angular frequency and quality factor</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        The existing LC resonant-frequency formula returns cycles per second:
+                        <code class="text-gray-100">f₀ = 1/(2π√LC)</code>. The new angular-frequency formula returns
+                        <code class="text-gray-100">ω₀ = 1/√LC</code> in rad/s; convert between them with
+                        <code class="text-gray-100">ω₀ = 2πf₀</code>. The series-RLC quality-factor helper uses
+                        <code class="text-gray-100">Q = ω₀L/R = √(L/C)/R</code>. Alternatively, calculate
+                        <code class="text-gray-100">Q = ω₀/Δω</code> from resonant angular frequency and angular
+                        bandwidth. Both results are dimensionless.
+                    </p>
+                </article>
+                <article class="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                    <h3 class="font-semibold text-blue-300">Ideal transformer ratios</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-300">
+                        The transformer helpers calculate secondary RMS voltage and current from primary values and
+                        winding turns: <code class="text-gray-100">Vs/Vp = Ns/Np</code> and
+                        <code class="text-gray-100">Is/Ip = Np/Ns</code>. A step-up in voltage implies a corresponding
+                        step-down in current for an ideal transformer. These equations assume an ideal transformer;
+                        they omit winding/core losses, regulation, saturation, magnetizing current, and load effects.
+                        Do not use these estimates to select, wire, or work on mains equipment without qualified
+                        review and applicable safety procedures.
+                    </p>
+                </article>
             </div>
             <p class="mt-3 rounded-lg border border-amber-900 bg-amber-950/30 p-4 text-sm leading-6 text-amber-100">
                 Three-phase helpers assume a balanced system and use line-to-line RMS voltage with line RMS current.
@@ -602,6 +689,16 @@
                 power factor; nonlinear loads with harmonic distortion may need true-RMS measurements and more
                 detailed analysis. Ideal RLC results do not include component tolerances, losses, saturation, or
                 parasitic effects.
+            </p>
+            <p class="mt-3 leading-7 text-gray-300">
+                The separate <a class="text-blue-300 hover:text-blue-200" href="./PhysicsDashboard.html">Interactive
+                Physics Dashboard</a> visualizes frequency, period, rotating RLC voltage/current phasors, and
+                charged-particle or current-carrying-wire Lorentz-force vectors. In the Studio, use
+                <strong class="text-gray-100">AC frequency from cycle time period</strong>,
+                <strong class="text-gray-100">Time period of one AC cycle from frequency</strong>, and
+                <strong class="text-gray-100">AC angular frequency from cycles per second</strong> for
+                <code class="text-gray-100">f = 1/T</code>, <code class="text-gray-100">T = 1/f</code>, and
+                <code class="text-gray-100">ω = 2πf</code>.
             </p>
         </section>
 

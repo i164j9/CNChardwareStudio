@@ -73,11 +73,31 @@ const formulaParameterRegistry = {
         type: 'positional',
         inputs: ['shaftPowerWatts', 'motorDriveEfficiency'],
     },
+    seriesCapacitanceFarads: {
+        type: 'number_list',
+        inputs: ['capacitancesFarads'],
+    },
+    parallelCapacitanceFarads: {
+        type: 'number_list',
+        inputs: ['capacitancesFarads'],
+    },
+    seriesResistanceOhms: {
+        type: 'number_list',
+        inputs: ['resistancesOhms'],
+    },
+    parallelResistanceOhms: {
+        type: 'number_list',
+        inputs: ['resistancesOhms'],
+    },
 };
 const formulaTextParameters = new Set([
     'straightnessErrorUm.readingsUm',
     'straightnessErrorPer500Mm.readingsUm',
     'backlashCompensationPulses.measurements',
+    'seriesCapacitanceFarads.capacitancesFarads',
+    'parallelCapacitanceFarads.capacitancesFarads',
+    'seriesResistanceOhms.resistancesOhms',
+    'parallelResistanceOhms.resistancesOhms',
 ]);
 const straightnessFormulas = new Set([
     'straightnessErrorUm',
@@ -125,6 +145,16 @@ const resultUnitOptions = {
             { label: 'm/min', toBase: 1 },
             { label: 'in/min', toBase: 0.0254 },
             { label: 'ft/min', toBase: 0.3048 },
+        ],
+    },
+    time: {
+        default: 's',
+        units: [
+            { label: 'µs', toBase: 1e-6 },
+            { label: 'ms', toBase: 1e-3 },
+            { label: 's', toBase: 1 },
+            { label: 'min', toBase: 60 },
+            { label: 'h', toBase: 3600 },
         ],
     },
     current: {
@@ -278,12 +308,18 @@ const formulaResultUnits = {
     estimateTotalPsuCurrent: { dimension: 'current' },
     dcCurrentFromPower: { dimension: 'current' },
     currentFromVoltageAndResistance: { dimension: 'current' },
+    voltageFromCurrentAndResistance: { dimension: 'voltage' },
+    resistanceFromVoltageAndCurrent: { dimension: 'resistance' },
+    acRmsCurrentFromImpedance: { dimension: 'current' },
     singlePhaseAcCurrent: { dimension: 'current' },
     threePhaseAcCurrent: { dimension: 'current' },
     acRmsVoltageToPeak: { dimension: 'voltage' },
     acPeakVoltageToRms: { dimension: 'voltage' },
     acRmsCurrentToPeak: { dimension: 'current' },
     acPeakCurrentToRms: { dimension: 'current' },
+    acFrequencyFromPeriodHz: { dimension: 'frequency' },
+    acTimePeriodSeconds: { dimension: 'time' },
+    acAngularFrequencyRadPerSecond: { unit: 'rad/s' },
     singlePhaseAcApparentPower: { dimension: 'apparentPower' },
     threePhaseAcApparentPower: { dimension: 'apparentPower' },
     singlePhaseAcRealPower: { dimension: 'power' },
@@ -296,8 +332,22 @@ const formulaResultUnits = {
     seriesRlcCurrentAmps: { dimension: 'current' },
     seriesRlcPowerFactor: { unit: 'ratio' },
     seriesRlcPhaseAngleRadians: { dimension: 'angle' },
+    instantaneousAcVoltage: { dimension: 'voltage' },
+    instantaneousAcCurrent: { dimension: 'current' },
+    acPeakCurrentFromImpedance: { dimension: 'current' },
+    averageAcPowerWatts: { dimension: 'power' },
+    resistorAcPowerWatts: { dimension: 'power' },
+    resonantAngularFrequencyRadPerSecond: { unit: 'rad/s' },
+    seriesRlcQualityFactor: { unit: 'ratio' },
+    qualityFactorFromBandwidth: { unit: 'ratio' },
+    idealTransformerSecondaryVoltage: { dimension: 'voltage' },
+    idealTransformerSecondaryCurrent: { dimension: 'current' },
     inductiveReactanceOhms: { dimension: 'resistance' },
     capacitiveReactanceOhms: { dimension: 'resistance' },
+    seriesCapacitanceFarads: { dimension: 'capacitance' },
+    parallelCapacitanceFarads: { dimension: 'capacitance' },
+    seriesResistanceOhms: { dimension: 'resistance' },
+    parallelResistanceOhms: { dimension: 'resistance' },
     lcResonantFrequencyHz: { dimension: 'frequency' },
     inductorEnergyJoules: { dimension: 'energy' },
     capacitorEnergyJoules: { dimension: 'energy' },
@@ -349,13 +399,19 @@ const formulaDisplayNames = {
     stepperMaxTargetVoltage: 'Stepper driver voltage estimate from motor inductance',
     estimateTotalPsuCurrent: 'Estimated power-supply current for multiple motors',
     dcCurrentFromPower: 'DC current from power and voltage',
-    currentFromVoltageAndResistance: 'Current through a resistor (Ohm’s law)',
+    currentFromVoltageAndResistance: 'Ohm’s law — current from voltage and resistance (DC or resistive AC)',
+    voltageFromCurrentAndResistance: 'Ohm’s law — voltage from current and resistance (DC or resistive AC)',
+    resistanceFromVoltageAndCurrent: 'Ohm’s law — resistance from voltage and current (DC or resistive AC)',
+    acRmsCurrentFromImpedance: 'AC RMS current from RMS voltage and impedance',
     singlePhaseAcCurrent: 'AC current — single-phase equipment',
     threePhaseAcCurrent: 'AC current — balanced three-phase equipment',
     acRmsVoltageToPeak: 'Convert AC voltage from RMS to peak',
     acPeakVoltageToRms: 'Convert AC voltage from peak to RMS',
     acRmsCurrentToPeak: 'Convert AC current from RMS to peak',
     acPeakCurrentToRms: 'Convert AC current from peak to RMS',
+    acFrequencyFromPeriodHz: 'AC frequency from cycle time period',
+    acTimePeriodSeconds: 'Time period of one AC cycle from frequency',
+    acAngularFrequencyRadPerSecond: 'AC angular frequency from cycles per second',
     singlePhaseAcApparentPower: 'Apparent power — single-phase equipment',
     threePhaseAcApparentPower: 'Apparent power — balanced three-phase equipment',
     singlePhaseAcRealPower: 'Useful electrical power — single-phase equipment',
@@ -368,8 +424,22 @@ const formulaDisplayNames = {
     seriesRlcCurrentAmps: 'AC current through a resistor, coil, and capacitor',
     seriesRlcPowerFactor: 'Power factor for a resistor, coil, and capacitor circuit',
     seriesRlcPhaseAngleRadians: 'Timing difference between voltage and current — RLC circuit',
+    instantaneousAcVoltage: 'Instantaneous voltage of a sine wave',
+    instantaneousAcCurrent: 'Instantaneous current of a sine wave',
+    acPeakCurrentFromImpedance: 'Peak AC current from peak voltage and impedance',
+    averageAcPowerWatts: 'Average AC power from peak voltage, peak current, and phase angle',
+    resistorAcPowerWatts: 'Average resistor power from RMS current and resistance',
+    resonantAngularFrequencyRadPerSecond: 'Resonant angular frequency of a coil and capacitor',
+    seriesRlcQualityFactor: 'Quality factor of a series RLC circuit',
+    qualityFactorFromBandwidth: 'Quality factor from resonant frequency and bandwidth',
+    idealTransformerSecondaryVoltage: 'Ideal transformer secondary voltage from turns ratio',
+    idealTransformerSecondaryCurrent: 'Ideal transformer secondary current from turns ratio',
     inductiveReactanceOhms: 'AC opposition from a coil (inductive reactance)',
     capacitiveReactanceOhms: 'AC opposition from a capacitor (capacitive reactance)',
+    seriesCapacitanceFarads: 'Equivalent capacitance — capacitors in series',
+    parallelCapacitanceFarads: 'Equivalent capacitance — capacitors in parallel',
+    seriesResistanceOhms: 'Equivalent resistance — resistors in series',
+    parallelResistanceOhms: 'Equivalent resistance — resistors in parallel',
     lcResonantFrequencyHz: 'Resonant frequency of a coil and capacitor',
     inductorEnergyJoules: 'Energy stored in a coil (inductor)',
     capacitorEnergyJoules: 'Energy stored in a capacitor',
@@ -402,13 +472,19 @@ const formulaDescriptions = {
     stepperMaxTargetVoltage: 'Estimates a stepper driver voltage from the motor winding inductance. Treat this as a rough guide only and follow the motor and driver manufacturers’ limits.',
     estimateTotalPsuCurrent: 'Estimates the combined DC supply current for several motors using a rough concurrency allowance. Use a measured or manufacturer-specified supply-side current for a more reliable result.',
     dcCurrentFromPower: 'Calculates DC current by dividing the load power in watts by the supply voltage in volts.',
-    currentFromVoltageAndResistance: 'Uses Ohm’s law to estimate current through a resistance: voltage divided by resistance.',
+    currentFromVoltageAndResistance: 'Calculates current with I = V/R for DC voltage/current, or for an AC circuit that is purely resistive using RMS voltage and RMS current. For reactive AC circuits, use impedance and RMS values instead.',
+    voltageFromCurrentAndResistance: 'Calculates voltage with V = IR for DC values, or for a purely resistive AC load using RMS current and RMS voltage. In AC circuits with reactance, use impedance and RMS phasor calculations.',
+    resistanceFromVoltageAndCurrent: 'Calculates resistance with R = V/I for DC values, or for a purely resistive AC load using RMS voltage and RMS current. For a reactive AC load, V/I gives impedance magnitude, not resistance.',
+    acRmsCurrentFromImpedance: 'Calculates AC RMS current with Irms = Vrms/|Z|. Use RMS voltage and impedance magnitude in ohms at the same frequency. AC impedance includes resistance and reactance, unlike DC resistance.',
     singlePhaseAcCurrent: 'Estimates current for a single-phase AC load from real power, RMS voltage, and power factor. Enter power in watts, voltage in volts, and power factor from 0 to 1.',
     threePhaseAcCurrent: 'Estimates line current for a balanced three-phase AC load from total real power, line-to-line RMS voltage, and power factor. It assumes the three phases are evenly balanced.',
     acRmsVoltageToPeak: 'Converts an AC sine-wave voltage from its RMS value (the common meter rating) to its peak value.',
     acPeakVoltageToRms: 'Converts the peak voltage of an AC sine wave to its RMS value (the value commonly shown on meters and equipment ratings).',
     acRmsCurrentToPeak: 'Converts the RMS current of an AC sine wave to its peak current.',
     acPeakCurrentToRms: 'Converts the peak current of an AC sine wave to its RMS current.',
+    acFrequencyFromPeriodHz: 'Calculates frequency in cycles per second from the time for one complete cycle: f = 1/T. Enter the cycle period in seconds.',
+    acTimePeriodSeconds: 'Calculates the time for one complete cycle from frequency: T = 1/f. Enter frequency in hertz; the result is seconds per cycle.',
+    acAngularFrequencyRadPerSecond: 'Converts frequency in cycles per second to angular frequency: ω = 2πf. The result is radians per second (rad/s).',
     singlePhaseAcApparentPower: 'Calculates single-phase apparent power by multiplying RMS voltage by RMS current. The result is in volt-amperes (VA), not watts.',
     threePhaseAcApparentPower: 'Calculates apparent power for a balanced three-phase load from line-to-line RMS voltage and line current. The result is in volt-amperes (VA), not watts.',
     singlePhaseAcRealPower: 'Calculates useful single-phase AC power from RMS voltage, RMS current, and power factor. The result is in watts.',
@@ -421,8 +497,22 @@ const formulaDescriptions = {
     seriesRlcCurrentAmps: 'Estimates RMS current through an ideal series resistor, inductor, and capacitor using the source voltage and frequency.',
     seriesRlcPowerFactor: 'Calculates the power-factor magnitude of an ideal series resistor, inductor, and capacitor circuit at the chosen frequency.',
     seriesRlcPhaseAngleRadians: 'Calculates the phase angle between voltage and current in an ideal series RLC circuit. Positive means the circuit acts inductively; negative means it acts capacitively.',
-    inductiveReactanceOhms: 'Calculates how much a coil opposes AC current at a chosen frequency. The result is in ohms and increases with frequency.',
-    capacitiveReactanceOhms: 'Calculates how much a capacitor opposes AC current at a chosen frequency. The result is in ohms and decreases as frequency increases.',
+    instantaneousAcVoltage: 'Calculates instantaneous voltage for an ideal sine wave using peak voltage, angular frequency, and elapsed time: v(t) = Vpeak sin(ωt). Assumes zero phase offset.',
+    instantaneousAcCurrent: 'Calculates instantaneous current for an ideal sine wave using peak current, angular frequency, and elapsed time: i(t) = Ipeak sin(ωt). Assumes zero phase offset.',
+    acPeakCurrentFromImpedance: 'Calculates peak AC current from peak voltage and impedance magnitude using the AC form of Ohm’s law: Ipeak = Vpeak/Z.',
+    averageAcPowerWatts: 'Calculates average sinusoidal real power from peak voltage, peak current, and the voltage-to-current phase angle: P = ½ Vpeak Ipeak cos(φ). Enter phase angle in radians.',
+    resistorAcPowerWatts: 'Calculates average power dissipated as heat in a resistor using RMS current: P = Irms²R. This is the resistor formula for sinusoidal steady-state current.',
+    resonantAngularFrequencyRadPerSecond: 'Calculates ideal LC resonant angular frequency in radians per second: ω₀ = 1/√(LC). This is angular frequency, not cycles per second; divide by 2π to get hertz.',
+    seriesRlcQualityFactor: 'Calculates ideal series-RLC quality factor from resistance, inductance, and capacitance: Q = √(L/C)/R, equivalent to ω₀L/R. Q is dimensionless.',
+    qualityFactorFromBandwidth: 'Calculates quality factor from resonant angular frequency divided by angular bandwidth: Q = ω₀/Δω. Use the same angular-frequency units for both inputs.',
+    idealTransformerSecondaryVoltage: 'Estimates secondary RMS voltage for an ideal transformer from primary voltage and winding turns: Vs/Vp = Ns/Np. Ignores losses, regulation, and magnetizing current.',
+    idealTransformerSecondaryCurrent: 'Estimates secondary RMS current for an ideal transformer from primary current and winding turns: Is/Ip = Np/Ns. Ignores losses, regulation, and magnetizing current.',
+    inductiveReactanceOhms: 'Calculates ideal inductive reactance for sinusoidal AC with XL = 2πfL, where frequency is in hertz and inductance is in henries. The result is in ohms and increases with frequency. At DC (f = 0), ideal inductive reactance is zero.',
+    capacitiveReactanceOhms: 'Calculates ideal capacitive reactance for sinusoidal AC with XC = 1/(2πfC), where frequency is in hertz and capacitance is in farads. The result is in ohms and decreases as frequency increases. At DC (f = 0), an ideal capacitor blocks steady-state current and XC is infinite.',
+    seriesCapacitanceFarads: 'Calculates total capacitance for two or more capacitors in series using 1/Ceq = Σ(1/Ci). Enter each positive capacitance in farads, separated by commas or new lines. The equivalent is less than the smallest capacitor.',
+    parallelCapacitanceFarads: 'Calculates total capacitance for two or more capacitors in parallel using Ceq = ΣCi. Enter each positive capacitance in farads, separated by commas or new lines.',
+    seriesResistanceOhms: 'Calculates total resistance for two or more resistors in series using Req = ΣRi. Enter each resistance in ohms, separated by commas or new lines.',
+    parallelResistanceOhms: 'Calculates total resistance for two or more resistors in parallel using 1/Req = Σ(1/Ri). Enter each resistance in ohms, separated by commas or new lines. A zero-ohm branch makes the ideal equivalent zero.',
     lcResonantFrequencyHz: 'Estimates the frequency at which an ideal inductor and capacitor resonate. Real components have losses and tolerances, so their actual resonant frequency can differ.',
     inductorEnergyJoules: 'Calculates the energy stored in a coil from its inductance and the current flowing through it.',
     capacitorEnergyJoules: 'Calculates the energy stored in a capacitor from its capacitance and voltage.',
@@ -481,6 +571,10 @@ const formulaParameterDefaults = {
     'backlashCompensationPulses.measurements': '',
     'backlashCompensationPulses.measurementUnit': 'inch',
     'backlashCompensationPulses.pulsesPerMicron': 4,
+    'seriesCapacitanceFarads.capacitancesFarads': '',
+    'parallelCapacitanceFarads.capacitancesFarads': '',
+    'seriesResistanceOhms.resistancesOhms': '',
+    'parallelResistanceOhms.resistancesOhms': '',
 };
 const formulaInputDisplayNames = {
     measurementLengthMm: 'Total measured length (mm)',
@@ -503,6 +597,8 @@ const formulaInputDisplayNames = {
     powerWatts: 'Real power used (W)',
     voltage: 'Voltage (V)',
     resistanceOhms: 'Resistance (Ω)',
+    resistancesOhms: 'Resistor values (Ω)',
+    capacitancesFarads: 'Capacitor values (F)',
     lineVoltage: 'Line-to-line voltage (V RMS)',
     powerFactor: 'Power factor (0 to 1)',
     voltageRms: 'Voltage (V RMS)',
@@ -515,9 +611,19 @@ const formulaInputDisplayNames = {
     inductanceHenries: 'Inductance (H)',
     capacitanceFarads: 'Capacitance (F)',
     frequencyHz: 'AC frequency (Hz)',
+    periodSeconds: 'Time period of one cycle (s)',
+    phaseAngleRadians: 'Voltage-to-current phase angle (rad)',
+    angularFrequencyRadPerSecond: 'Angular frequency (rad/s)',
+    primaryVoltageRms: 'Primary RMS voltage (V)',
+    primaryCurrentRms: 'Primary RMS current (A)',
+    primaryTurns: 'Primary winding turns',
+    secondaryTurns: 'Secondary winding turns',
+    resonantAngularFrequencyRadPerSecond: 'Resonant angular frequency (rad/s)',
+    bandwidthAngularFrequencyRadPerSecond: 'Angular bandwidth (rad/s)',
     currentAmps: 'Current (A)',
     currentChangeAmps: 'Measured current change (A)',
     timeSeconds: 'Elapsed time (s)',
+    impedanceOhms: 'Impedance magnitude (Ω)',
     voltageChange: 'Measured voltage change (V)',
     supplyVoltage: 'DC supply voltage (V)',
     loadPowerWatts: 'Power for one load group (W)',
@@ -551,8 +657,47 @@ const formulaInputDisplayNames = {
     currentSteps: 'Current steps/counts per unit distance',
     commandedDistance: 'Distance the controller was told to move',
     actualDistance: 'Distance the machine actually moved',
+    'currentFromVoltageAndResistance.voltage': 'DC voltage (V) or AC RMS voltage for a purely resistive load (V RMS)',
+    'currentFromVoltageAndResistance.resistanceOhms': 'Resistance (Ω)',
+    'voltageFromCurrentAndResistance.currentAmps': 'DC current (A) or AC RMS current for a purely resistive load (A RMS)',
+    'voltageFromCurrentAndResistance.resistanceOhms': 'Resistance (Ω)',
+    'resistanceFromVoltageAndCurrent.voltage': 'DC voltage (V) or AC RMS voltage for a purely resistive load (V RMS)',
+    'resistanceFromVoltageAndCurrent.currentAmps': 'DC current (A) or AC RMS current for a purely resistive load (A RMS)',
 };
 const formulaInputDescriptions = {
+    voltageFromCurrentAndResistance: {
+        currentAmps: 'Enter steady DC current, or sinusoidal AC RMS current only for a purely resistive load.',
+        resistanceOhms: 'Enter the DC resistance or the resistance of the purely resistive AC load.',
+    },
+    resistanceFromVoltageAndCurrent: {
+        voltage: 'Enter steady DC voltage, or sinusoidal AC RMS voltage for a purely resistive load. For reactive AC loads, the ratio V/I is impedance magnitude rather than resistance.',
+        currentAmps: 'Enter steady DC current, or sinusoidal AC RMS current for a purely resistive load.',
+    },
+    acRmsCurrentFromImpedance: {
+        voltageRms: 'Enter sinusoidal AC RMS voltage in volts RMS, not peak voltage.',
+        impedanceOhms: 'Enter the magnitude of the AC impedance in ohms at the same frequency as the voltage.',
+    },
+    seriesCapacitanceFarads: {
+        capacitancesFarads: 'Enter at least two positive capacitance values in farads, separated by commas or new lines. Example: 0.000001, 0.000002.',
+    },
+    parallelCapacitanceFarads: {
+        capacitancesFarads: 'Enter at least two positive capacitance values in farads, separated by commas or new lines. Example: 0.000001, 0.000002.',
+    },
+    seriesResistanceOhms: {
+        resistancesOhms: 'Enter at least two non-negative resistance values in ohms, separated by commas or new lines. Example: 100, 220.',
+    },
+    parallelResistanceOhms: {
+        resistancesOhms: 'Enter at least two non-negative resistance values in ohms, separated by commas or new lines. Example: 100, 220.',
+    },
+    acFrequencyFromPeriodHz: {
+        periodSeconds: 'Time for one complete repeating cycle, in seconds (s). Example: 0.02 seconds corresponds to 50 Hz.',
+    },
+    acTimePeriodSeconds: {
+        frequencyHz: 'Number of complete cycles per second, in hertz (Hz). Example: 60 Hz corresponds to a period of about 0.01667 seconds.',
+    },
+    acAngularFrequencyRadPerSecond: {
+        frequencyHz: 'Number of complete cycles per second, in hertz (Hz). Angular frequency is calculated as ω = 2πf.',
+    },
     backlashCompensationPulses: {
         measurements: 'Enter exactly 18 non-negative backlash readings from one axis, separated by commas or new lines. Use the document table order: first location rapid tests 1–3, first location machining-speed tests 1–3, then repeat for the other two locations. X locations: left, right, middle. Y locations: front, middle, back. For other axes, follow the machine-specific test layout.',
         measurementUnit: 'Choose the unit used for every reading. Inch values follow the supplied procedure’s rounded conversion of 2.5 µm per 0.0001 in.',
@@ -609,8 +754,8 @@ const formulaInputDescriptions = {
         voltage: 'DC supply voltage across the load, in volts. The estimate divides power by this voltage.',
     },
     currentFromVoltageAndResistance: {
-        voltage: 'DC voltage applied across the resistor, in volts.',
-        resistanceOhms: 'Resistance between the two measurement points, in ohms (Ω).',
+        voltage: 'Enter steady DC voltage, or sinusoidal AC RMS voltage only when the load is purely resistive. For reactive AC loads, use RMS voltage with impedance, not resistance.',
+        resistanceOhms: 'Enter the DC resistance or the resistance of the purely resistive AC load. Reactive AC opposition is impedance, not resistance.',
     },
     singlePhaseAcCurrent: {
         powerWatts: 'Single-phase AC real power consumed by the load, in watts (W).',
@@ -671,6 +816,52 @@ const formulaInputDescriptions = {
         realPowerWatts: 'Total balanced three-phase real power delivered to the load, in watts (W).',
         lineVoltageRms: 'Balanced three-phase line-to-line supply voltage in RMS volts.',
         lineCurrentRms: 'Balanced three-phase line current in RMS amperes.',
+    },
+    instantaneousAcVoltage: {
+        voltagePeak: 'Maximum voltage of the sinusoidal waveform, in volts (V).',
+        angularFrequencyRadPerSecond: 'Angular frequency ω in radians per second (rad/s). For frequency f in hertz, use ω = 2πf.',
+        timeSeconds: 'Elapsed time from the waveform zero crossing, in seconds (s).',
+    },
+    instantaneousAcCurrent: {
+        currentPeak: 'Maximum current of the sinusoidal waveform, in amperes (A).',
+        angularFrequencyRadPerSecond: 'Angular frequency ω in radians per second (rad/s). For frequency f in hertz, use ω = 2πf.',
+        timeSeconds: 'Elapsed time from the waveform zero crossing, in seconds (s).',
+    },
+    acPeakCurrentFromImpedance: {
+        voltagePeak: 'Peak voltage applied to the AC impedance, in volts (V).',
+        impedanceOhms: 'Magnitude of the AC impedance, in ohms (Ω). Use the impedance at the source frequency.',
+    },
+    averageAcPowerWatts: {
+        voltagePeak: 'Peak voltage of the sinusoidal waveform, in volts (V).',
+        currentPeak: 'Peak current of the sinusoidal waveform, in amperes (A).',
+        phaseAngleRadians: 'Voltage phase minus current phase, in radians. Use the sign convention consistently; positive is a lagging current in this formula.',
+    },
+    resistorAcPowerWatts: {
+        currentRms: 'Effective (RMS) current through the resistor, in amperes (A).',
+        resistanceOhms: 'Resistance of the component dissipating power, in ohms (Ω).',
+    },
+    resonantAngularFrequencyRadPerSecond: {
+        inductanceHenries: 'Inductance of the coil, in henries (H). Convert mH to H by dividing by 1,000.',
+        capacitanceFarads: 'Capacitance of the capacitor, in farads (F). Convert µF to F by dividing by 1,000,000.',
+    },
+    seriesRlcQualityFactor: {
+        resistanceOhms: 'Series resistance of the RLC circuit, in ohms (Ω). Use the effective resistance at resonance when known.',
+        inductanceHenries: 'Series inductance, in henries (H).',
+        capacitanceFarads: 'Series capacitance, in farads (F).',
+    },
+    qualityFactorFromBandwidth: {
+        resonantAngularFrequencyRadPerSecond: 'Resonant angular frequency ω₀ in radians per second (rad/s).',
+        bandwidthAngularFrequencyRadPerSecond: 'Angular bandwidth Δω in radians per second (rad/s), using the same frequency convention as ω₀.',
+    },
+    idealTransformerSecondaryVoltage: {
+        primaryVoltageRms: 'RMS voltage applied to the primary winding, in volts (V).',
+        primaryTurns: 'Number of turns in the primary winding. Use the documented winding turns, not a voltage ratio.',
+        secondaryTurns: 'Number of turns in the secondary winding. Use the documented winding turns, not a voltage ratio.',
+    },
+    idealTransformerSecondaryCurrent: {
+        primaryCurrentRms: 'RMS current entering the primary winding, in amperes (A).',
+        primaryTurns: 'Number of turns in the primary winding.',
+        secondaryTurns: 'Number of turns in the secondary winding.',
     },
     seriesRlcImpedanceOhms: {
         resistanceOhms: 'Resistance of the series circuit in ohms (Ω).',
@@ -2050,15 +2241,19 @@ function renderInputsForBlock(blockNode, blockState) {
         const isTextInput = formulaTextParameters.has(
             `${blockState.selectedFormula}.${name}`,
         );
-        const isMultilineTextInput = blockState.selectedFormula === 'backlashCompensationPulses'
-            && name === 'measurements';
+        const isMultilineTextInput = (
+            blockState.selectedFormula === 'backlashCompensationPulses'
+            && name === 'measurements'
+        ) || formulaParameterRegistry[blockState.selectedFormula]?.type === 'number_list';
         blockState.inputs[name] = inputState;
 
         const wrapper = document.createElement('div');
         wrapper.className = 'space-y-1.5';
         const label = document.createElement('label');
         label.className = 'block text-xs font-medium text-gray-400';
-        const inputName = formulaInputDisplayNames[name] ?? humanizeName(name);
+        const inputName = formulaInputDisplayNames[
+            `${blockState.selectedFormula}.${name}`
+        ] ?? formulaInputDisplayNames[name] ?? humanizeName(name);
         const labelText = optionalFormulaParameters.has(
             `${blockState.selectedFormula}.${name}`,
         )
@@ -2099,11 +2294,23 @@ function renderInputsForBlock(blockNode, blockState) {
                 : document.createElement('input');
         if (isMultilineTextInput) {
             literalInput.rows = 3;
-            literalInput.placeholder = 'Enter 18 readings separated by commas or new lines';
+            if (blockState.selectedFormula === 'backlashCompensationPulses') {
+                literalInput.placeholder = 'Enter 18 readings separated by commas or new lines';
+            } else if (
+                blockState.selectedFormula === 'seriesCapacitanceFarads' ||
+                blockState.selectedFormula === 'parallelCapacitanceFarads'
+            ) {
+                literalInput.placeholder = 'e.g. 0.000001, 0.000002';
+            } else {
+                literalInput.placeholder = 'e.g. 100, 220';
+            }
         } else if (!inputOptions) {
             literalInput.type = isTextInput ? 'text' : 'number';
-            if (isTextInput) literalInput.placeholder = 'e.g. 0, 10, 20, 30, 31';
-            else literalInput.step = 'any';
+            if (isTextInput) {
+                literalInput.placeholder = 'e.g. 0, 10, 20, 30, 31';
+            } else {
+                literalInput.step = 'any';
+            }
         } else {
             inputOptions.forEach(({ value, label: optionLabel }) => {
                 const option = document.createElement('option');
@@ -2258,6 +2465,12 @@ function invokeFormula(formulaName, parameters, values) {
             inputValues.pulsesPerMicron,
         );
     }
+    if (parameterConfig?.type === 'number_list') {
+        const [inputName] = parameterConfig.inputs;
+        return CncHardwareMath[formulaName](
+            parseCommaSeparatedValues(inputValues[inputName]),
+        );
+    }
     return CncHardwareMath[formulaName](...values);
 }
 
@@ -2291,6 +2504,21 @@ function parseBacklashMeasurements(value) {
         throw new Error('Each backlash measurement must be a finite, non-negative number.');
     }
     return measurements;
+}
+
+function parseCommaSeparatedValues(value) {
+    if (typeof value !== 'string') {
+        throw new Error('Enter the component values as comma-separated numbers or one value per line.');
+    }
+    const tokens = value.split(/[,\r\n]+/).map((token) => token.trim());
+    if (tokens.length < 2 || tokens.some((token) => token === '')) {
+        throw new Error('Enter at least two component values, separated by commas or new lines.');
+    }
+    const values = tokens.map(Number);
+    if (values.some((component) => !Number.isFinite(component))) {
+        throw new Error('Each component value must be a finite number.');
+    }
+    return values;
 }
 
 function evaluatePipeline() {

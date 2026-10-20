@@ -16,10 +16,11 @@ The app's Tailwind stylesheet is built locally and included as `cncHardwareStyle
 
 ## Features
 
-- Formula blocks for direct-drive and belt-driven screw steps/mm and servo counts/mm, pure-belt steps/mm, motion limits, straightness error (including comparison scaled to 500 mm), backlash compensation pulses from repeated measurements, inertia, torque, power, DC/AC current and power (including single- and three-phase power factor with ratio/percentage display, grouped-load DC supply sizing, shaft-to-electrical power conversion, and configurable DC wire-drop diagnostics), RLC behavior, and unit conversions.
+- Formula blocks for direct-drive and belt-driven screw steps/mm and servo counts/mm, pure-belt steps/mm, motion limits, straightness error (including comparison scaled to 500 mm), backlash compensation pulses from repeated measurements, inertia, torque, power, DC/AC current and power (including single- and three-phase power factor with ratio/percentage display, peak-value/phase-angle AC power, DC and AC Ohm’s law, series/parallel resistor and capacitor equivalents, inductive and capacitive reactance, resistor heating, grouped-load DC supply sizing, shaft-to-electrical power conversion, and configurable DC wire-drop diagnostics), RLC behavior and quality factor, ideal transformer ratios, and unit conversions.
 - Ordered calculation pipelines: later blocks can use outputs from earlier blocks as inputs.
 - Automatically groups blocks connected by piped results and marks upstream blocks that feed multiple calculations as shared foundations.
 - A backlash calculator that averages 18 measurements for one axis and converts the measured travel into whole compensation pulses using the supplied procedure's unit factors.
+- Frequency/period/angular-frequency formula blocks and a standalone [interactive physics dashboard](./PhysicsDashboard.html) for AC RLC phasors and 3D Lorentz-force vectors.
 - Parameter-sweep graphs with explanations for the selected input, range, and point count, including torque/inertia and acceleration/deceleration current estimates. Related enabled formula graphs are automatically combined in a master chart when they use the same input, range, and number of points.
 - A spreadsheet-style straightness plot showing measured readings and the straight line between the first and last readings along the measured length.
 - A final graph gallery for enabled graph blocks.
@@ -49,7 +50,9 @@ This regenerates `cncHardwareStyles.css` from `tailwind.input.css` and the class
 | `index.html` | Main browser-based formula pipeline and graphing Studio; the GitHub Pages homepage. |
 | `cncHardwareMath.js` | ES module containing the CNC mechanical, electrical, motion, conversion, and calibration formulas. |
 | `cncHardwareTutorial.html` | In-app tutorial and calculation/safety guidance. |
-| `cncHardwareStyles.css` | Generated, local Tailwind stylesheet required by both HTML pages. |
+| `PhysicsDashboard.html` | Standalone interactive AC phasor, waveform, and 3D Lorentz-force visualizer; uses `PhysicsFormulas.js`. |
+| `PhysicsFormulas.js` | Complex-number, 3D vector, AC phasor, and electromagnetic force helpers used by the physics dashboard. |
+| `cncHardwareStyles.css` | Generated, local Tailwind stylesheet used by the Studio and tutorial pages. |
 | `tailwind.input.css` | Tailwind v4 stylesheet entry point and HTML content sources. |
 | `package.json`, `package-lock.json` | CSS build command and locked build-tool dependencies. |
 | `cncStepsCalculator.js` | Separate steps/mm calculator with belt-driven screw, direct screw, pure belt, conversion, and calibration examples. |

@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Interactive AC phasor and 3D Lorentz-force visualizer with live controls.">
+    <title>Interactive Physics Dashboard</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+            background: #080d18;
+            color: #e5e7eb;
+            --panel: #111827;
+            --panel-border: #263449;
+            --muted: #9ca3af;
+            --blue: #60a5fa;
+            --green: #34d399;
+            --orange: #fb923c;
+            --purple: #c084fc;
+            --red: #f87171;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; min-width: 320px; }
+        header, main { width: min(1400px, calc(100% - 32px)); margin: auto; }
+        header { padding: 22px 0 18px; display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+        h1, h2, h3, p { margin-top: 0; }
+        h1 { margin-bottom: 6px; font-size: clamp(1.45rem, 4vw, 2rem); }
+        h2 { margin-bottom: 8px; font-size: 1.2rem; }
+        h3 { margin-bottom: 8px; font-size: 1rem; }
+        a { color: #93c5fd; }
+        .subtle, .hint { color: var(--muted); line-height: 1.55; }
+        .subtle { margin-bottom: 0; max-width: 780px; font-size: .92rem; }
+        .back-link { border: 1px solid var(--panel-border); border-radius: 8px; padding: 9px 12px; text-decoration: none; }
+        main { padding-bottom: 36px; }
+        .callout { padding: 12px 14px; margin-bottom: 16px; border: 1px solid #075985; border-radius: 10px; background: #082f494d; color: #bae6fd; line-height: 1.55; }
+        .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+        .panel { min-width: 0; padding: 16px; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--panel); }
+        .span-two { grid-column: 1 / -1; }
+        .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 10px; margin: 14px 0; }
+        label { display: grid; gap: 5px; color: #cbd5e1; font-size: .82rem; }
+        input, select, button { min-width: 0; border: 1px solid #374151; border-radius: 7px; background: #080d18; color: #f3f4f6; padding: 9px 10px; font: inherit; }
+        input:focus, select:focus, button:focus-visible, a:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+        [hidden] { display: none !important; }
+        input[type="number"] { width: 100%; }
+        button { cursor: pointer; }
+        button:hover { background: #1f2937; }
+        .toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
+        .toolbar label { display: flex; align-items: center; gap: 7px; }
+        .toolbar input { width: auto; }
+        canvas { display: block; width: 100%; height: 310px; border: 1px solid #263449; border-radius: 9px; background: #080d18; }
+        #phasorCanvas { height: 280px; }
+        #waveCanvas { height: 220px; margin-top: 10px; }
+        #forceCanvas { height: 430px; cursor: grab; touch-action: none; }
+        #forceCanvas:active { cursor: grabbing; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 8px; margin-top: 12px; }
+        .stat { border: 1px solid #263449; background: #080d18; border-radius: 8px; padding: 9px 10px; }
+        .stat span { display: block; color: var(--muted); font-size: .74rem; }
+        .stat strong { display: block; margin-top: 3px; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, monospace; font-size: .88rem; }
+        .legend { display: flex; gap: 14px; flex-wrap: wrap; margin: 8px 0; color: var(--muted); font-size: .8rem; }
+        .legend b { color: #e5e7eb; }
+        .error { min-height: 1.5em; color: #fca5a5; font-size: .85rem; }
+        details { margin-top: 12px; color: var(--muted); line-height: 1.55; }
+        details summary { color: #cbd5e1; cursor: pointer; }
+        .hint { margin-bottom: 0; font-size: .83rem; }
+        @media (max-width: 760px) {
+            header, main { width: min(100% - 20px, 1400px); }
+            .grid { grid-template-columns: 1fr; }
+            .span-two { grid-column: auto; }
+            .panel { padding: 13px; }
+            #forceCanvas { height: 340px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { scroll-behavior: auto !important; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div>
+            <h1>Interactive Physics Dashboard</h1>
+            <p class="subtle">Explore AC phasors and electromagnetic force vectors by changing values or dragging to rotate the 3D view.</p>
+        </div>
+        <a class="back-link" href="./index.html">← CNC Hardware Studio</a>
+    </header>
+    <main>
+        <div class="callout">
+            Educational ideal-model visualizations. They do not model real component tolerances, losses, field boundaries,
+            relativistic effects, or equipment safety. Keep all values in the displayed units.
+        </div>
+        <div class="grid">
+            <section class="panel" aria-labelledby="frequencyTitle">
+                <h2 id="frequencyTitle">Frequency, period, and angular frequency</h2>
+                <p class="hint">For a repeating signal, frequency is cycles per second, period is seconds per cycle, and ω = 2πf.</p>
+                <div class="controls">
+                    <label>Frequency (Hz)<input id="frequency" type="number" min="0.000001" step="any" value="60"></label>
+                    <label>Time period T (ms)<input id="period" type="number" min="0.000001" step="any" value="16.6666667"></label>
+                </div>
+                <div class="stats">
+                    <div class="stat"><span>Frequency</span><strong id="frequencyResult">—</strong></div>
+                    <div class="stat"><span>Period</span><strong id="periodResult">—</strong></div>
+                    <div class="stat"><span>Angular frequency</span><strong id="angularResult">—</strong></div>
+                </div>
+                <p class="error" id="frequencyError" role="status"></p>
+            </section>
+
+            <section class="panel" aria-labelledby="phasorTitle">
+                <h2 id="phasorTitle">RLC voltage and current phasors</h2>
+                <p class="hint">Series circuit model: Z = R + j(ωL − 1/ωC), I = V/Z. Voltage is the 0° reference; current phase is opposite the impedance angle. The phasor diagram updates with the inputs while the waveforms animate below.</p>
+                <div class="controls">
+                    <label>Source voltage (V RMS)<input id="sourceVoltage" type="number" min="0" step="any" value="120"></label>
+                    <label>Frequency (Hz)<input id="rlcFrequency" type="number" min="0.000001" step="any" value="60"></label>
+                    <label>Resistance R (Ω)<input id="resistance" type="number" min="0" step="any" value="100"></label>
+                    <label>Inductance L (mH)<input id="inductance" type="number" min="0" step="any" value="100"></label>
+                    <label>Capacitance C (µF)<input id="capacitance" type="number" min="0.000001" step="any" value="100"></label>
+                </div>
+                <div class="legend"><span><b style="color:var(--blue)">● V</b> voltage phasor</span><span><b style="color:var(--green)">● I</b> current phasor</span><span><b style="color:var(--orange)">● Z</b> impedance</span></div>
+                <canvas id="phasorCanvas" role="img" aria-label="Voltage, current, and impedance phasor vectors"></canvas>
+                <div class="stats">
+                    <div class="stat"><span>Impedance</span><strong id="impedanceResult">—</strong></div>
+                    <div class="stat"><span>Current</span><strong id="currentResult">—</strong></div>
+                    <div class="stat"><span>Current phase</span><strong id="phaseResult">—</strong></div>
+                    <div class="stat"><span>Real power</span><strong id="realPowerResult">—</strong></div>
+                </div>
+                <div class="toolbar">
+                    <button id="animationToggle" type="button">Pause animation</button>
+                    <label>Animation speed <input id="animationSpeed" type="range" min="0" max="3" step="0.1" value="1"></label>
+                    <span id="animationTime" class="hint">t = 0.00 s</span>
+                </div>
+                <canvas id="waveCanvas" role="img" aria-label="Animated AC voltage and current waveforms"></canvas>
+                <p class="error" id="phasorError" role="status"></p>
+            </section>
+
+            <section class="panel span-two" aria-labelledby="forceTitle">
+                <h2 id="forceTitle">3D Lorentz force explorer</h2>
+                <p class="hint">Drag the drawing to rotate its view. Particle mode uses F = q(E + v × B); wire mode uses F = I(L × B). Arrow directions are shown; lengths are normalized because these vectors have different units.</p>
+                <div class="toolbar">
+                    <label>Force model
+                        <select id="forceMode">
+                            <option value="particle">Charged particle</option>
+                            <option value="wire">Current-carrying wire segment</option>
+                        </select>
+                    </label>
+                </div>
+                <div id="particleControls" class="controls">
+                    <label>Charge q (nC)<input data-vector-input="q" type="number" step="any" value="1"></label>
+                    <label>Velocity vₓ (m/s)<input data-vector-input="vx" type="number" step="any" value="2"></label>
+                    <label>Velocity vᵧ (m/s)<input data-vector-input="vy" type="number" step="any" value="0"></label>
+                    <label>Velocity v_z (m/s)<input data-vector-input="vz" type="number" step="any" value="0"></label>
+                    <label>Electric field Eₓ (V/m)<input data-vector-input="ex" type="number" step="any" value="0"></label>
+                    <label>Electric field Eᵧ (V/m)<input data-vector-input="ey" type="number" step="any" value="0"></label>
+                    <label>Electric field E_z (V/m)<input data-vector-input="ez" type="number" step="any" value="0"></label>
+                </div>
+                <div id="wireControls" class="controls" hidden>
+                    <label>Current I (A)<input data-vector-input="wireCurrent" type="number" step="any" value="1"></label>
+                    <label>Segment Lₓ (m)<input data-vector-input="lx" type="number" step="any" value="1"></label>
+                    <label>Segment Lᵧ (m)<input data-vector-input="ly" type="number" step="any" value="0"></label>
+                    <label>Segment L_z (m)<input data-vector-input="lz" type="number" step="any" value="0"></label>
+                </div>
+                <div class="controls">
+                    <label>Magnetic field Bₓ (mT)<input data-vector-input="bx" type="number" step="any" value="0"></label>
+                    <label>Magnetic field Bᵧ (mT)<input data-vector-input="by" type="number" step="any" value="0"></label>
+                    <label>Magnetic field B_z (mT)<input data-vector-input="bz" type="number" step="any" value="10"></label>
+                </div>
+                <div class="legend">
+                    <span><b style="color:var(--blue)">● v / L</b></span>
+                    <span><b style="color:var(--purple)">● B</b></span>
+                    <span><b style="color:var(--orange)">● E or v × B</b></span>
+                    <span><b style="color:var(--green)">● F</b></span>
+                </div>
+                <canvas id="forceCanvas" role="img" aria-label="Rotatable three-dimensional Lorentz force vector diagram"></canvas>
+                <div class="stats">
+                    <div class="stat"><span>Magnetic contribution</span><strong id="magneticResult">—</strong></div>
+                    <div class="stat"><span>Net force vector</span><strong id="forceResult">—</strong></div>
+                    <div class="stat"><span>Force magnitude</span><strong id="forceMagnitude">—</strong></div>
+                    <div class="stat"><span>Direction</span><strong id="forceDirection">—</strong></div>
+                </div>
+                <p class="error" id="forceError" role="status"></p>
+                <details>
+                    <summary>Units and interpretation</summary>
+                    <p>Particle mode converts charge from nC to C and magnetic field from mT to T; velocity is in m/s, electric field in V/m, and force in N. Wire mode uses current in A, segment length in m, magnetic field in T, and force in N. The wire length vector points in the conventional current direction. The view is a rotatable projection, not a scale-accurate 3D scene.</p>
+                </details>
+            </section>
+        </div>
+    </main>
+
+    <script src="./PhysicsFormulas.js"></script>
+    <script>
+        (() => {
+            const $ = (id) => document.getElementById(id);
+            const number = (id) => Number($(id).value);
+            const formatter = new Intl.NumberFormat(undefined, { maximumSignificantDigits: 5 });
+            const fmt = (value) => Number.isFinite(value) ? formatter.format(value) : '—';
+            const radToDeg = (value) => value * 180 / Math.PI;
+            const complex = PhysicsFormulas.Utils.Complex;
+            let phaseTime = 0;
+            let lastFrame = 0;
+            let animationRunning = true;
+            let phasorState = null;
+            let forceState = null;
+            let cameraYaw = -0.62;
+            let cameraPitch = 0.48;
+
+            function updateFrequency() {
+                const f = number('frequency');
+                const periodMs = number('period');
+                const error = $('frequencyError');
+                if (!(f > 0) && !(periodMs > 0)) {
+                    error.textContent = 'Enter a positive frequency or cycle period.';
+                    return;
+                }
+                if (document.activeElement === $('period') && periodMs > 0) {
+                    const periodSeconds = periodMs / 1000;
+                    $('frequency').value = 1 / periodSeconds;
+                } else if (f > 0) {
+                    $('period').value = 1000 / f;
+                } else {
+                    error.textContent = 'Frequency and period must be positive.';
+                    return;
+                }
+                const selectedFrequency = number('frequency');
+                const selectedPeriod = number('period') / 1000;
+                $('frequencyResult').textContent = `${fmt(selectedFrequency)} Hz`;
+                $('periodResult').textContent = `${fmt(selectedPeriod)} s`;
+                $('angularResult').textContent = `${fmt(2 * Math.PI * selectedFrequency)} rad/s`;
+                error.textContent = '';
+            }
+
+            function updatePhasors() {
+                const values = ['sourceVoltage', 'rlcFrequency', 'resistance', 'inductance', 'capacitance'].map(number);
+                const [voltage, frequency, resistance, inductanceMilli, capacitanceMicro] = values;
+                if (values.some((value) => !Number.isFinite(value)) || voltage < 0 || frequency <= 0 || resistance < 0 || inductanceMilli < 0 || capacitanceMicro <= 0) {
+                    $('phasorError').textContent = 'Use non-negative voltage, resistance, and inductance; frequency and capacitance must be positive.';
+                    phasorState = null;
+                    clearCanvas($('phasorCanvas'));
+                    clearCanvas($('waveCanvas'));
+                    return;
+                }
+                const inductance = inductanceMilli / 1000;
+                const capacitance = capacitanceMicro / 1e6;
+                try {
+                    const impedance = PhysicsFormulas.Electricity.ac.rlcImpedancePhasor(resistance, inductance, capacitance, frequency);
+                    const voltagePhasor = complex.fromPolar(voltage, 0);
+                    const currentPhasor = voltagePhasor.divide(impedance);
+                    const phase = impedance.phase();
+                    const apparent = voltage * currentPhasor.magnitude();
+                    const realPower = apparent * Math.cos(phase);
+                    phasorState = { voltage, frequency, impedance, voltagePhasor, currentPhasor, phase, realPower, apparent };
+                    $('impedanceResult').textContent = `${fmt(impedance.real)} ${impedance.imag < 0 ? '−' : '+'} j${fmt(Math.abs(impedance.imag))} Ω  |Z|=${fmt(impedance.magnitude())} Ω`;
+                    $('currentResult').textContent = `${fmt(currentPhasor.magnitude())} A RMS`;
+                    $('phaseResult').textContent = `${fmt(radToDeg(currentPhasor.phase()))}°`;
+                    $('realPowerResult').textContent = `${fmt(realPower)} W`;
+                    $('phasorError').textContent = '';
+                    drawPhasor();
+                    drawWave();
+                } catch (error) {
+                    phasorState = null;
+                    $('phasorError').textContent = error.message;
+                    clearCanvas($('phasorCanvas'));
+                    clearCanvas($('waveCanvas'));
+                }
+            }
+
+            function setupCanvas(canvas) {
+                const rect = canvas.getBoundingClientRect();
+                const ratio = Math.max(1, window.devicePixelRatio || 1);
+                const width = Math.max(1, rect.width);
+                const height = Math.max(1, rect.height);
+                if (canvas.width !== Math.round(width * ratio) || canvas.height !== Math.round(height * ratio)) {
+                    canvas.width = Math.round(width * ratio);
+                    canvas.height = Math.round(height * ratio);
+                }
+                const ctx = canvas.getContext('2d');
+                ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+                return { ctx, width, height };
+            }
+
+            function clearCanvas(canvas) {
+                const { ctx, width, height } = setupCanvas(canvas);
+                ctx.clearRect(0, 0, width, height);
+            }
+
+            function arrow(ctx, x1, y1, x2, y2, color, label, width = 2.6) {
+                ctx.strokeStyle = color;
+                ctx.fillStyle = color;
+                ctx.lineWidth = width;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+                const angle = Math.atan2(y2 - y1, x2 - x1);
+                const head = 8;
+                ctx.beginPath();
+                ctx.moveTo(x2, y2);
+                ctx.lineTo(x2 - head * Math.cos(angle - Math.PI / 6), y2 - head * Math.sin(angle - Math.PI / 6));
+                ctx.lineTo(x2 - head * Math.cos(angle + Math.PI / 6), y2 - head * Math.sin(angle + Math.PI / 6));
+                ctx.closePath();
+                ctx.fill();
+                ctx.font = '12px ui-sans-serif, system-ui';
+                ctx.fillText(label, x2 + 7, y2 - 7);
+            }
+
+            function drawPhasor() {
+                const canvas = $('phasorCanvas');
+                const { ctx, width, height } = setupCanvas(canvas);
+                ctx.clearRect(0, 0, width, height);
+                if (!phasorState) return;
+                const { voltagePhasor, currentPhasor, impedance } = phasorState;
+                const midX = width / 2;
+                const topY = height * 0.34;
+                const bottomY = height * 0.78;
+                const radius = Math.min(width * 0.22, height * 0.27);
+                ctx.font = '12px ui-sans-serif, system-ui';
+                ctx.fillStyle = '#9ca3af';
+                ctx.fillText('Voltage and current (each vector normalized to its own magnitude)', 12, 18);
+                ctx.fillText('Series impedance: real resistance + imaginary net reactance', 12, height * 0.58);
+                [topY, bottomY].forEach((y) => {
+                    ctx.strokeStyle = '#263449';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath(); ctx.moveTo(18, y); ctx.lineTo(width - 18, y); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(midX, y - radius); ctx.lineTo(midX, y + radius); ctx.stroke();
+                });
+                const angleI = currentPhasor.phase();
+                arrow(ctx, midX, topY, midX + radius * Math.cos(0), topY - radius * Math.sin(0), '#60a5fa', 'V');
+                arrow(ctx, midX, topY, midX + radius * Math.cos(angleI), topY - radius * Math.sin(angleI), '#34d399', 'I');
+                const zScale = radius / Math.max(impedance.magnitude(), 1e-12);
+                arrow(ctx, midX, bottomY, midX + impedance.real * zScale, bottomY - impedance.imag * zScale, '#fb923c', 'Z');
+                ctx.fillStyle = '#9ca3af';
+                ctx.fillText('0° reference', 12, topY + radius + 18);
+            }
+
+            function drawWave() {
+                const canvas = $('waveCanvas');
+                const { ctx, width, height } = setupCanvas(canvas);
+                ctx.clearRect(0, 0, width, height);
+                if (!phasorState) return;
+                const { frequency, phase } = phasorState;
+                const left = 38, right = width - 12, mid = height / 2;
+                ctx.strokeStyle = '#334155'; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(left, mid); ctx.lineTo(right, mid); ctx.stroke();
+                ctx.fillStyle = '#9ca3af'; ctx.font = '12px ui-sans-serif, system-ui';
+                ctx.fillText('Voltage and current (each waveform normalized to its own peak)', 10, 16);
+                const period = 1 / frequency;
+                const elapsedCycles = phaseTime * frequency;
+                const phaseOffset = 2 * Math.PI * (elapsedCycles - Math.floor(elapsedCycles));
+                const curve = (offset, color) => {
+                    ctx.strokeStyle = color; ctx.lineWidth = 2.2; ctx.beginPath();
+                    for (let index = 0; index <= right - left; index += 1) {
+                        const x = left + index;
+                        const angle = (index / (right - left)) * 2 * Math.PI + phaseOffset - offset;
+                        const y = mid - Math.sin(angle) * (height * 0.3);
+                        if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+                };
+                curve(0, '#60a5fa');
+                curve(phase, '#34d399');
+                const cursor = left + (phaseTime % period) / period * (right - left);
+                ctx.strokeStyle = '#fbbf24'; ctx.setLineDash([4, 4]);
+                ctx.beginPath(); ctx.moveTo(cursor, 24); ctx.lineTo(cursor, height - 8); ctx.stroke();
+                ctx.setLineDash([]);
+                $('animationTime').textContent = `t = ${fmt(phaseTime)} s`;
+            }
+
+            function vec(x, y, z) { return new PhysicsFormulas.Utils.Vector3D(x, y, z); }
+            function inputValue(key) {
+                const input = document.querySelector(`[data-vector-input="${key}"]`);
+                return Number(input.value);
+            }
+            function updateForce() {
+                const mode = $('forceMode').value;
+                $('particleControls').hidden = mode !== 'particle';
+                $('wireControls').hidden = mode !== 'wire';
+                const keys = mode === 'particle'
+                    ? ['q','vx','vy','vz','ex','ey','ez','bx','by','bz']
+                    : ['wireCurrent','lx','ly','lz','bx','by','bz'];
+                const values = keys.map(inputValue);
+                if (values.some((value) => !Number.isFinite(value))) {
+                    $('forceError').textContent = 'Every vector component and scalar must be a finite number.';
+                    return;
+                }
+                const magneticField = vec(inputValue('bx') / 1000, inputValue('by') / 1000, inputValue('bz') / 1000);
+                let magnetic, force, vectors;
+                if (mode === 'particle') {
+                    const charge = inputValue('q') * 1e-9;
+                    const velocity = vec(inputValue('vx'), inputValue('vy'), inputValue('vz'));
+                    const electric = vec(inputValue('ex'), inputValue('ey'), inputValue('ez'));
+                    magnetic = velocity.cross(magneticField).scale(charge);
+                    force = PhysicsFormulas.Magnetism.lorentzForce(charge, electric, velocity, magneticField);
+                    vectors = [
+                        { name: 'v', value: velocity, color: '#60a5fa' },
+                        { name: 'B', value: magneticField, color: '#c084fc' },
+                        { name: 'E', value: electric, color: '#fb923c' },
+                        { name: 'v × B', value: velocity.cross(magneticField), color: '#f97316' },
+                        { name: 'F', value: force, color: '#34d399' },
+                    ];
+                } else {
+                    const current = inputValue('wireCurrent');
+                    const length = vec(inputValue('lx'), inputValue('ly'), inputValue('lz'));
+                    magnetic = length.cross(magneticField).scale(current);
+                    force = PhysicsFormulas.Magnetism.magneticForceOnWireVector(current, length, magneticField);
+                    vectors = [
+                        { name: 'L', value: length, color: '#60a5fa' },
+                        { name: 'B', value: magneticField, color: '#c084fc' },
+                        { name: 'L × B', value: length.cross(magneticField), color: '#f97316' },
+                        { name: 'F', value: force, color: '#34d399' },
+                    ];
+                }
+                forceState = vectors;
+                $('magneticResult').textContent = vectorText(magnetic);
+                $('forceResult').textContent = vectorText(force);
+                $('forceMagnitude').textContent = `${fmt(force.magnitude())} N`;
+                $('forceDirection').textContent = unitDirection(force);
+                $('forceError').textContent = '';
+                drawForce();
+            }
+
+            function vectorText(value) {
+                return `(${fmt(value.x)}, ${fmt(value.y)}, ${fmt(value.z)})`;
+            }
+            function unitDirection(value) {
+                if (value.magnitude() === 0) return 'Zero vector';
+                const unit = value.normalize();
+                return `(${fmt(unit.x)}, ${fmt(unit.y)}, ${fmt(unit.z)})`;
+            }
+            function project(value, scale, cx, cy) {
+                const cyaw = Math.cos(cameraYaw), syaw = Math.sin(cameraYaw);
+                const cp = Math.cos(cameraPitch), sp = Math.sin(cameraPitch);
+                const x = value.x * cyaw - value.y * syaw;
+                const y0 = value.x * syaw + value.y * cyaw;
+                const y = y0 * cp - value.z * sp;
+                const z = y0 * sp + value.z * cp;
+                const perspective = 1 / (1 + z * 0.08);
+                return { x: cx + x * scale * perspective, y: cy - y * scale * perspective };
+            }
+            function drawForce() {
+                const canvas = $('forceCanvas');
+                const { ctx, width, height } = setupCanvas(canvas);
+                ctx.clearRect(0, 0, width, height);
+                if (!forceState) return;
+                const cx = width / 2, cy = height / 2;
+                const axes = [
+                    { name: 'x', value: vec(1,0,0), color: '#64748b' },
+                    { name: 'y', value: vec(0,1,0), color: '#64748b' },
+                    { name: 'z', value: vec(0,0,1), color: '#64748b' },
+                ];
+                axes.forEach((axis) => {
+                    const p = project(axis.value, Math.min(width, height) * 0.37, cx, cy);
+                    arrow(ctx, cx, cy, p.x, p.y, axis.color, axis.name, 1.2);
+                });
+                const vectorScale = Math.min(width, height) * 0.35;
+                forceState.forEach((item) => {
+                    if (item.value.magnitude() < 1e-15) return;
+                    const end = project(item.value.normalize(), vectorScale, cx, cy);
+                    arrow(ctx, cx, cy, end.x, end.y, item.color, item.name, item.name === 'F' ? 3.5 : 2.2);
+                });
+                ctx.fillStyle = '#9ca3af'; ctx.font = '12px ui-sans-serif, system-ui';
+                ctx.fillText('Drag to rotate • arrow directions shown; lengths normalized', 12, height - 12);
+            }
+
+            $('frequency').addEventListener('input', updateFrequency);
+            $('period').addEventListener('input', updateFrequency);
+            ['sourceVoltage','rlcFrequency','resistance','inductance','capacitance'].forEach((id) => $(id).addEventListener('input', updatePhasors));
+            $('forceMode').addEventListener('change', updateForce);
+            document.querySelectorAll('[data-vector-input]').forEach((input) => input.addEventListener('input', updateForce));
+            $('animationToggle').addEventListener('click', () => {
+                animationRunning = !animationRunning;
+                $('animationToggle').textContent = animationRunning ? 'Pause animation' : 'Resume animation';
+            });
+            $('animationSpeed').addEventListener('input', drawWave);
+            const forceCanvas = $('forceCanvas');
+            let drag = null;
+            forceCanvas.addEventListener('pointerdown', (event) => {
+                drag = { x: event.clientX, y: event.clientY };
+                forceCanvas.setPointerCapture(event.pointerId);
+            });
+            forceCanvas.addEventListener('pointermove', (event) => {
+                if (!drag) return;
+                cameraYaw += (event.clientX - drag.x) * 0.009;
+                cameraPitch = Math.max(-1.35, Math.min(1.35, cameraPitch + (event.clientY - drag.y) * 0.009));
+                drag = { x: event.clientX, y: event.clientY };
+                drawForce();
+            });
+            forceCanvas.addEventListener('pointerup', () => { drag = null; });
+            forceCanvas.addEventListener('pointercancel', () => { drag = null; });
+            window.addEventListener('resize', () => { drawPhasor(); drawWave(); drawForce(); });
+
+            function animate(timestamp) {
+                const delta = lastFrame ? Math.min((timestamp - lastFrame) / 1000, 0.05) : 0;
+                lastFrame = timestamp;
+                if (animationRunning) {
+                    phaseTime += delta * number('animationSpeed');
+                    drawWave();
+                }
+                requestAnimationFrame(animate);
+            }
+            updateFrequency();
+            updatePhasors();
+            updateForce();
+            requestAnimationFrame(animate);
+        })();
+    </script>
+</body>
+</html>
